@@ -16,5 +16,7 @@ urlpatterns = [
     path('admin/updateUser/<int:user_id>/', admin_update_user, name='admin_update_user'),
     path('verify-otp/', VerifyOTPView.as_view(), name='verify-otp'),
     path('resend-otp/', ResendOTPView.as_view(), name='resend-otp'),
+    path('profile/', profile_view, name='profile'),
+    path('profile/picture/', profile_picture_view, name='profile-picture'),
   
 ]

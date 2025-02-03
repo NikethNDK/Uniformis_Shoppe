@@ -52,7 +52,7 @@ class User(AbstractBaseUser):
     is_active       = models.BooleanField(default=True)
     is_superadmin   = models.BooleanField(default=False)
     is_email_verified = models.BooleanField(default=False) #for signup otp
-
+    date_of_birth = models.DateField(null=True, blank=True)
 
     USERNAME_FIELD  = 'email'   
     REQUIRED_FIELDS = ['username','first_name','last_name']

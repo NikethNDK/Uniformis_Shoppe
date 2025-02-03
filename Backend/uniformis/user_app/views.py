@@ -294,22 +294,45 @@ class AdminDashboardView(APIView):
 class UserProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self,request):
-        profile = UserProfile.objects.get(user=request.user)
+    def get(self, request):
+        profile, created = UserProfile.objects.get_or_create(user=request.user)
         return Response({
-            'username': request.user.username,
+            'first_name': request.user.first_name,
+            'last_name': request.user.last_name,
             'profile_picture': request.build_absolute_uri(profile.profile_picture.url) if profile.profile_picture else None,
         })
     
     def put(self, request):
-        profile = UserProfile.objects.get(user=request.user)
-        if 'username' in request.data:
-            request.user.username = request.data['username']
-            request.user.save()
+        profile, created = UserProfile.objects.get_or_create(user=request.user)
         if 'profile_picture' in request.FILES:
             profile.profile_picture = request.FILES['profile_picture']
             profile.save()
-        return Response({'message': 'profile updated successfully'})
+        return Response({
+            'first_name': request.user.first_name,
+            'last_name': request.user.last_name,
+            'profile_picture': request.build_absolute_uri(profile.profile_picture.url) if profile.profile_picture else None,
+            'message': 'Profile updated successfully'
+        })
+    
+# class UserProfileView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self,request):
+#         profile = UserProfile.objects.get(user=request.user)
+#         return Response({
+#             'username': request.user.username,
+#             'profile_picture': request.build_absolute_uri(profile.profile_picture.url) if profile.profile_picture else None,
+#         })
+    
+#     def put(self, request):
+#         profile = UserProfile.objects.get(user=request.user)
+#         if 'username' in request.data:
+#             request.user.username = request.data['username']
+#             request.user.save()
+#         if 'profile_picture' in request.FILES:
+#             profile.profile_picture = request.FILES['profile_picture']
+#             profile.save()
+#         return Response({'message': 'profile updated successfully'})
     
     
 @api_view(['DELETE'])
@@ -438,3 +461,41 @@ def google_login( request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
     
+@api_view(['GET', 'PUT'])
+@permission_classes([IsAuthenticated])
+def profile_view(request):
+    try:
+        user = request.user
+        if request.method == 'GET':
+            serializer = UserSerializer(user)
+            return Response(serializer.data)
+        
+        elif request.method == 'PUT':
+            serializer = UserSerializer(user, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET', 'PUT'])
+@permission_classes([IsAuthenticated])
+def profile_picture_view(request):
+    try:
+        profile, created = UserProfile.objects.get_or_create(user=request.user)
+        
+        if request.method == 'GET':
+            serializer = UserProfileSerializer(profile)
+            return Response(serializer.data)
+            
+        elif request.method == 'PUT':
+            serializer = UserProfileSerializer(profile, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

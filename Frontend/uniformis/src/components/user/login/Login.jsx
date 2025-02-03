@@ -9,6 +9,8 @@ import Loading from '../../ui/Loading'
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import OTPVerificationModal from '../OTPVerificationModal/OTPVerificationModal';
+import { fetchUserProfile } from "../../../redux/profile/profileSlice"
+
 
 const Login = () => {
     const [email, setEmail] = useState('');
@@ -38,6 +40,7 @@ const Login = () => {
         } else if (type === 'SUCCESS') {
             // Use dispatch instead of manually setting localStorage
             dispatch(setAuthData(data));
+            dispatch(fetchUserProfile())
             toast.success('Login successful!');
             navigate('/user/homepage');
         }
@@ -114,6 +117,7 @@ const Login = () => {
             credential: response.credential // Send the credential token to your backend
           });
           dispatch(setAuthData(backendResponse.data));
+          dispatch(fetchUserProfile())
           setError('');
           navigate('/user/homepage');
         } catch (error) {
@@ -125,6 +129,7 @@ const Login = () => {
       const handleOTPSuccess = (data) => {
         // Use dispatch instead of manually setting localStorage
         dispatch(setAuthData(data));
+        dispatch(fetchUserProfile())
         setShowOTPModal(false);
         toast.success('Email verified successfully!');
         navigate('/user/homepage');

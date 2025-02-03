@@ -60,7 +60,9 @@ export default function Navbar() {
             {isAuthenticated ? (
               <div className="flex items-center gap-4">
                 <div className="relative group">
+                <Link to={`/user/profile-information`}>
                   <button className="flex items-center gap-2">
+                    
                     {profile?.profile_picture ? (
                       <img
                         src={profile.profile_picture || "/placeholder.svg"}
@@ -71,7 +73,7 @@ export default function Navbar() {
                       <User className="h-6 w-6" />
                     )}
                     <span>{user?.username}</span>
-                  </button>
+                  </button></Link>
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 invisible group-hover:visible">
                     <Link to="/profile" className="block px-4 py-2 hover:bg-gray-100">
                       Profile
