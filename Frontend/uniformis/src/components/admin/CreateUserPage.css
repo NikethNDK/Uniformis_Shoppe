@@ -1,0 +1,68 @@
+.create-user-page {
+    max-width: 500px;
+    margin: 50px auto;
+    padding: 30px;
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  .create-user-title {
+    color: #333;
+    font-size: 24px;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  
+  .create-user-form {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .create-user-input {
+    margin-bottom: 15px;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 16px;
+    transition: border-color 0.3s ease;
+  }
+  
+  .create-user-input:focus {
+    border-color: #4a90e2;
+    outline: none;
+  }
+  
+  .create-user-button-group {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+  }
+  
+  .create-user-submit,
+  .create-user-cancel {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .create-user-submit {
+    background-color: #4a90e2;
+    color: white;
+  }
+  
+  .create-user-submit:hover {
+    background-color: #357ae8;
+  }
+  
+  .create-user-cancel {
+    background-color: #f5f5f5;
+    color: #333;
+  }
+  
+  .create-user-cancel:hover {
+    background-color: #e0e0e0;
+  }

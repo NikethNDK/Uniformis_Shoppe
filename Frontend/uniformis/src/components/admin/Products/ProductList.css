@@ -1,0 +1,86 @@
+.dashboard-container {
+    display: flex;
+    min-height: 100vh; /* Ensure full height of the viewport */
+  }
+
+  .content {
+    margin-left: 280px; /* Push content to the right of the fixed sidebar (match sidebar width) */
+    padding: 20px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+.btn-style{
+    text-decoration: none;
+}
+
+
+
+/* //cgpt */
+/* src/App.css */
+.product-list {
+    padding: 20px;
+  }
+  
+  .add-product-btn {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  
+  .search-input {
+    padding: 10px;
+    margin-left: 20px;
+    width: 300px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+  }
+  
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+  }
+  
+  th, td {
+    padding: 10px;
+    border: 1px solid #ddd;
+    text-align: left;
+  }
+  
+  .product-img {
+    width: 50px;
+    height: auto;
+  }
+  
+  .view-btn, .size-btn, .edit-btn, .delete-btn {
+    padding: 5px 10px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  
+  .view-btn {
+    background-color: #17a2b8;
+    color: white;
+  }
+  
+  .size-btn {
+    background-color: #ffc107;
+    color: black;
+  }
+  
+  .edit-btn {
+    background-color: #007bff;
+    color: white;
+  }
+  
+  .delete-btn {
+    background-color: #dc3545;
+    color: white;
+  }
+  

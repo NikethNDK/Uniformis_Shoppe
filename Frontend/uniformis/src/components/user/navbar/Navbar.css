@@ -1,0 +1,136 @@
+/* Navbar Wrapper */
+.navbar-wrapper {
+  width: 100%;
+  z-index: 1000;
+}
+
+/* Main Navbar */
+.navbar {
+  padding: 1rem 0;
+  background-color: white !important;
+}
+
+/* Logo */
+.logo-img {
+  height: 45px;
+  width: auto;
+}
+.search-form {
+  display: flex;
+  flex-direction: row;
+  align-items: center; /* Aligns items vertically in the center */
+}
+
+
+.search-form .form-control {
+  border-radius: 25px 0 0 25px;
+  border: 1px solid #ddd;
+  padding-left: 1.5rem;
+  height: 45px;
+  width: 390px;
+}
+
+.search-form .btn-dark {
+  border-radius: 0 25px 25px 0;
+  width: 100px;
+  padding: 0.5rem 1.5rem;
+  height: 45px;
+  background-color: #212529;
+}
+
+/* Icons Section */
+.nav-icons {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.nav-icon {
+  color: #333;
+  text-decoration: none;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.nav-icon:hover {
+  color: #0066cc;
+}
+
+/* Profile Section */
+.profile-section {
+  display: flex;
+  align-items: center;
+}
+
+.profile-img {
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.profile-initial {
+  width: 35px;
+  height: 35px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #333;
+}
+
+.login-btn {
+  color: #333;
+  text-decoration: none;
+  padding: 0;
+}
+
+/* Categories Navbar */
+.categories-nav {
+  background-color: #fff5f5 !important;
+  padding: 0;
+  border-top: 1px solid #eee;
+}
+
+.categories-nav .nav-link {
+  color: #333;
+  padding: 0.75rem 1rem;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.categories-nav .nav-link:hover {
+  color: #0066cc;
+}
+
+/* Mobile Responsive */
+@media (max-width: 991px) {
+  .navbar {
+    padding: 0.5rem 1rem;
+  }
+
+  .search-form {
+    margin: 1rem 0;
+  }
+
+  .nav-icons {
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  .categories-nav .navbar-nav {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .navbar-collapse {
+    background: white;
+    padding: 1rem;
+    margin-top: 0.5rem;
+  }
+}
+
+/* Add spacing for fixed navbar */
+body {
+  padding-top: 130px;
+}

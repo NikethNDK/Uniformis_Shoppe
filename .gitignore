@@ -1,0 +1,14 @@
+# Node.js (Frontend)
+frontend/uniformis/node_modules/
+frontend/uniformis/.env
+frontend/dist/  # For Vite
+
+# Python (Backend)
+backend/__pycache__/
+backend/venv/
+backend/uniformis/.env
+
+
+# Ignore system files
+.DS_Store
+Thumbs.db
