@@ -1,16 +1,18 @@
 import { useState, useEffect } from "react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { ShoppingCart, Heart, User, Search } from "lucide-react"
 import { useSelector, useDispatch } from "react-redux"
 import { clearAuthData, setAuthData } from "../../../redux/auth/authSlice"
 import { clearProfile } from "../../../redux/profile/profileSlice"
 import logo from "../../../assets/logo.png"
 
+
 export default function Navbar() {
   const [searchQuery, setSearchQuery] = useState("")
   const { isAuthenticated, user } = useSelector((state) => state.auth)
   const { data: profile } = useSelector((state) => state.profile)
   const dispatch = useDispatch()
+  const navigate = useNavigate()
 
   useEffect(() => {
     const token = localStorage.getItem("token")
@@ -23,8 +25,10 @@ export default function Navbar() {
   const handleLogout = () => {
     dispatch(clearAuthData())
     dispatch(clearProfile())
+    navigate('/login')
     localStorage.removeItem("token")
     localStorage.removeItem("user")
+    
   }
 
   return (

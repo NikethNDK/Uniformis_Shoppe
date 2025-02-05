@@ -4,6 +4,7 @@ import axiosInstance from "../../axiosconfig"
 export const fetchUserProfile = createAsyncThunk("profile/fetchProfile", async (_, { rejectWithValue }) => {
   try {
     const response = await axiosInstance.get("user-profile/")
+    console.log("fetchUserprofile ",response.data)
     return response.data
   } catch (error) {
     return rejectWithValue(error.response?.data || "Failed to fetch profile")
@@ -30,6 +31,28 @@ export const updateUserProfile = createAsyncThunk(
     }
   },
 )
+export const fetchUserProfileDetails = createAsyncThunk("profile/fetchUserProfile", async (profileData, { rejectWithValue }) => {
+  try {
+    const response = await axiosInstance.get("user_profile_details/", {params: profileData})
+    console.log("response of the get",response.data)
+    return response.data
+  } catch (error) {
+    return rejectWithValue(error.response?.data || "Failed to fetch profile")
+  }
+})
+
+
+
+
+export const updateUserProfileDetails = createAsyncThunk("profile/updateUserProfile", async (profileData, { rejectWithValue }) => {
+  try {
+    const response = await axiosInstance.put("user_profile_details/", profileData)
+    
+    return response.data
+  } catch (error) {
+    return rejectWithValue(error.response?.data || "Failed to update profile")
+  }
+})
 
 const profileSlice = createSlice({
   name: "profile",
@@ -69,6 +92,30 @@ const profileSlice = createSlice({
       .addCase(updateUserProfile.rejected, (state, action) => {
         state.isLoading = false
         state.error = action.payload
+      })
+      .addCase(updateUserProfileDetails.pending, (state,action)=>{
+        state.isLoading = true
+        state.error=null
+      })
+      .addCase(updateUserProfileDetails.fulfilled,(state,action)=>{
+        state.isLoading = false
+        state.data=action.payload
+      })
+      .addCase(updateUserProfileDetails.rejected, (state,action)=>{
+        state.isLoading=false
+        state.error=action.payload
+      })
+      .addCase(fetchUserProfileDetails.pending,(state,action)=>{
+        state.isLoading=true
+        state.error=null
+      })
+      .addCase(fetchUserProfileDetails.fulfilled,(state,action)=>{
+        state.isLoading=false
+        state.data=action.payload
+      })
+      .addCase(fetchUserProfileDetails.rejected,(state,action)=>{
+        state.isLoading=false
+        state.error=action.payload
       })
   },
 })

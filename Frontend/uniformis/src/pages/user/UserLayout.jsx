@@ -42,22 +42,23 @@
 // };
 
 // export default UserLayout;
+
 import { useState } from "react"
-import { useDispatch } from "react-redux"
 import Navbar from "../../components/user/navbar/Navbar"
 import Footer from "../../components/user/footer/Footer"
 import { Outlet, useLocation } from "react-router-dom"
 import UserSidebar from "../../components/user/userprofile/UserSidebar"
 import ImageCropper from "./ProfileImageCropper"
-import { updateUserProfile } from "../../redux/profile/profileSlice"
 
 const UserLayout = () => {
   const location = useLocation()
-  const dispatch = useDispatch()
   const [showImageCropper, setShowImageCropper] = useState(false)
   const [selectedImage, setSelectedImage] = useState(null)
 
-  const sidebarRoutes = ["/user/profile-information"]
+  // routes where the user sidebar should be shown
+  const sidebarRoutes = ["/user/profile-information","/user/address"]
+
+  // Check if the current route is in sidebarRoutes
   const showSidebar = sidebarRoutes.includes(location.pathname)
 
   const handleImageSelect = (image) => {
@@ -65,13 +66,11 @@ const UserLayout = () => {
     setShowImageCropper(true)
   }
 
-  const handleImageCropComplete = async (croppedImageBlob) => {
-    try {
-      await dispatch(updateUserProfile({ profilePicture: croppedImageBlob })).unwrap()
-      setShowImageCropper(false)
-    } catch (error) {
-      console.error("Failed to update profile picture:", error)
-    }
+  const handleImageCropComplete = (croppedImage) => {
+    // Handle the cropped image (e.g., update profile picture)
+    // You might want to dispatch an action here to update the profile picture
+    console.log("Cropped image:", croppedImage)
+    setShowImageCropper(false)
   }
 
   return (

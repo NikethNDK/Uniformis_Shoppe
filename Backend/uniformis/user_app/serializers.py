@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import UserProfile
+from .models import UserProfile,Address
 
 User = get_user_model()
 
@@ -27,7 +27,7 @@ class UserSerializer(serializers.ModelSerializer):
         instance.is_staff = validated_data.get('is_staff', instance.is_staff)
         instance.is_active = validated_data.get('is_active', instance.is_active)
         instance.is_superadmin = validated_data.get('is_superadmin', instance.is_superadmin)
-
+        instance.date_of_birth = validated_data.get('date_of_birth',instance.date_of_birth)
        
         if 'password' in validated_data:
             instance.set_password(validated_data['password'])
@@ -49,3 +49,26 @@ class UserProfileSerializer(serializers.ModelSerializer):
         instance.profile_picture = validated_data.get('profile_picture', instance.profile_picture)
         instance.save()
         return instance
+    
+class AddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Address
+        fields= [
+            'id', 'name', 'house_no', 'city', 'state', 'pin_code',
+            'address_type', 'landmark', 'mobile_number', 'alternate_number'
+        ]
+
+    def validate_pin_code(self,value):
+        if not value.isdigit() or len(value)!=6:
+            raise serializers.ValidationError("Pincode must be 6 digits")
+        return value
+    
+    def validate_mobile_number(self, value):
+        if not value.isdigit() or len(value) != 10:
+            raise serializers.ValidationError("Mobile number must be 10 digits")
+        return value
+        
+    def validate_alternate_number(self, value):
+        if value and (not value.isdigit() or len(value) != 10):
+            raise serializers.ValidationError("Alternate number must be 10 digits")
+        return value

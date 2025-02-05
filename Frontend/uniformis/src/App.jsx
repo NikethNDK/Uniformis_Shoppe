@@ -22,6 +22,7 @@ import ProductDetail from "./components/user/productCard/ProductDetail.jsx";
 import ColorManagement from "./components/admin/Products/Color.jsx";
 import ProfileInformation from "./components/user/userprofile/ProfileInformation.jsx";
 import { GoogleOAuthProvider } from '@react-oauth/google';
+import AddressManagement from "./components/user/userprofile/AddressManagement.jsx";
 function App() {
   return (
     <>
@@ -44,12 +45,12 @@ function App() {
         <Route path="/admin/create-user" element={<CreateUserPage />} />
         <Route path="/admin/login" element={<AdminLogin />} />
         
-        
         {/* User routes */}
         <Route path='/user' element={<UserLayout/>}>
           <Route path="homepage" element={<ProductDisplay />} />
           <Route path="product/:id" element={<ProductDetail />} />
           <Route path="profile-information" element={<ProfileInformation />}/>
+          <Route path="address" element={<AddressManagement />} />
         </Route>
 
         <Route path="/user-profile" element={<UserProfile />} />

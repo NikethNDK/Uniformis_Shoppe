@@ -1,6 +1,9 @@
-from django.urls import path
+from django.urls import path,include
 from .views import *
+from rest_framework.routers import DefaultRouter
 
+router = DefaultRouter()
+router.register('addresses', AddressViewSet, basename='address')
 
 urlpatterns = [
     path('admin/csrf/', get_csrf_token),
@@ -16,7 +19,8 @@ urlpatterns = [
     path('admin/updateUser/<int:user_id>/', admin_update_user, name='admin_update_user'),
     path('verify-otp/', VerifyOTPView.as_view(), name='verify-otp'),
     path('resend-otp/', ResendOTPView.as_view(), name='resend-otp'),
-    path('profile/', profile_view, name='profile'),
-    path('profile/picture/', profile_picture_view, name='profile-picture'),
+    path('user_profile_details/', profile_view, name='profile'),
+    # path('profile/picture/', profile_picture_view, name='profile-picture'),
+    path('', include(router.urls)),
   
 ]

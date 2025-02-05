@@ -1,10 +1,10 @@
-from rest_framework import status
+from rest_framework import status,viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import UserSerializer
-from .models import UserProfile
+from .serializers import UserSerializer,AddressSerializer
+from .models import UserProfile,Address
 from django.contrib.auth import login
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import IsAdminUser
@@ -468,6 +468,7 @@ def profile_view(request):
         user = request.user
         if request.method == 'GET':
             serializer = UserSerializer(user)
+            logger.debug(serializer)
             return Response(serializer.data)
         
         elif request.method == 'PUT':
@@ -499,3 +500,24 @@ def profile_picture_view(request):
             
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+
+    # Address part
+
+class AddressViewSet(viewsets.ModelViewSet):
+    serializer_class = AddressSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        return Address.objects.filter(user=self.request.user)
+        
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+        
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response(
+            {"message": "Address deleted successfully"},
+            status=status.HTTP_200_OK
+        )

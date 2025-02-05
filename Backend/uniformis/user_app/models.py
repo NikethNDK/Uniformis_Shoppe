@@ -86,3 +86,28 @@ class OTP(models.Model):
 
     def is_expired(self):
         return timezone.now() > self.expires_at
+
+class Address (models.Model):
+    ADDRESS_TYPES =(
+         ('home', 'Home'),
+        ('work', 'Work'),
+    )
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='addresses')
+    name = models.CharField(max_length=100)
+    house_no = models.CharField(max_length=100)
+    city = models.CharField(max_length=100)
+    state = models.CharField(max_length=100)
+    pin_code = models.CharField(max_length=6)
+    address_type = models.CharField(max_length=4, choices=ADDRESS_TYPES)
+    landmark = models.CharField(max_length=200, blank=True)
+    mobile_number = models.CharField(max_length=10)
+    alternate_number = models.CharField(max_length=10, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.name}'s {self.address_type} address"
