@@ -38,8 +38,9 @@ User = get_user_model()
 
 class SignupView(APIView):
     def post(self, request):
+        print("Request: ",request.data)
         serializer = UserSerializer(data=request.data)
-
+        print("Signup serializer: ",serializer)
         try:
             if serializer.is_valid():
                 user = serializer.save()

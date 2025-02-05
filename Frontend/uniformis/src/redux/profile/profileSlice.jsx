@@ -4,7 +4,6 @@ import axiosInstance from "../../axiosconfig"
 export const fetchUserProfile = createAsyncThunk("profile/fetchProfile", async (_, { rejectWithValue }) => {
   try {
     const response = await axiosInstance.get("user-profile/")
-    console.log("fetchUserprofile ",response.data)
     return response.data
   } catch (error) {
     return rejectWithValue(error.response?.data || "Failed to fetch profile")
@@ -31,23 +30,19 @@ export const updateUserProfile = createAsyncThunk(
     }
   },
 )
+
 export const fetchUserProfileDetails = createAsyncThunk("profile/fetchUserProfile", async (profileData, { rejectWithValue }) => {
   try {
     const response = await axiosInstance.get("user_profile_details/", {params: profileData})
-    console.log("response of the get",response.data)
     return response.data
   } catch (error) {
     return rejectWithValue(error.response?.data || "Failed to fetch profile")
   }
 })
 
-
-
-
 export const updateUserProfileDetails = createAsyncThunk("profile/updateUserProfile", async (profileData, { rejectWithValue }) => {
   try {
     const response = await axiosInstance.put("user_profile_details/", profileData)
-    
     return response.data
   } catch (error) {
     return rejectWithValue(error.response?.data || "Failed to update profile")
@@ -57,69 +52,79 @@ export const updateUserProfileDetails = createAsyncThunk("profile/updateUserProf
 const profileSlice = createSlice({
   name: "profile",
   initialState: {
-    data: null,
-    isLoading: false,
-    error: null,
+    basicProfile: {
+      data: null,
+      isLoading: false,
+      error: null,
+    },
+    profileDetails: {
+      data: null,
+      isLoading: false,
+      error: null,
+    }
   },
   reducers: {
     clearProfile: (state) => {
-      state.data = null
-      state.error = null
+      state.basicProfile.data = null
+      state.basicProfile.error = null
+      state.profileDetails.data = null
+      state.profileDetails.error = null
     },
   },
   extraReducers: (builder) => {
     builder
+      // Basic profile reducers
       .addCase(fetchUserProfile.pending, (state) => {
-        state.isLoading = true
-        state.error = null
+        state.basicProfile.isLoading = true
+        state.basicProfile.error = null
       })
       .addCase(fetchUserProfile.fulfilled, (state, action) => {
-        state.isLoading = false
-        state.data = action.payload
+        state.basicProfile.isLoading = false
+        state.basicProfile.data = action.payload
       })
       .addCase(fetchUserProfile.rejected, (state, action) => {
-        state.isLoading = false
-        state.error = action.payload
+        state.basicProfile.isLoading = false
+        state.basicProfile.error = action.payload
       })
       .addCase(updateUserProfile.pending, (state) => {
-        state.isLoading = true
-        state.error = null
+        state.basicProfile.isLoading = true
+        state.basicProfile.error = null
       })
       .addCase(updateUserProfile.fulfilled, (state, action) => {
-        state.isLoading = false
-        state.data = action.payload
+        state.basicProfile.isLoading = false
+        state.basicProfile.data = action.payload
       })
       .addCase(updateUserProfile.rejected, (state, action) => {
-        state.isLoading = false
-        state.error = action.payload
+        state.basicProfile.isLoading = false
+        state.basicProfile.error = action.payload
       })
-      .addCase(updateUserProfileDetails.pending, (state,action)=>{
-        state.isLoading = true
-        state.error=null
+      // Profile details reducers
+      .addCase(fetchUserProfileDetails.pending, (state) => {
+        state.profileDetails.isLoading = true
+        state.profileDetails.error = null
       })
-      .addCase(updateUserProfileDetails.fulfilled,(state,action)=>{
-        state.isLoading = false
-        state.data=action.payload
+      .addCase(fetchUserProfileDetails.fulfilled, (state, action) => {
+        state.profileDetails.isLoading = false
+        state.profileDetails.data = action.payload
       })
-      .addCase(updateUserProfileDetails.rejected, (state,action)=>{
-        state.isLoading=false
-        state.error=action.payload
+      .addCase(fetchUserProfileDetails.rejected, (state, action) => {
+        state.profileDetails.isLoading = false
+        state.profileDetails.error = action.payload
       })
-      .addCase(fetchUserProfileDetails.pending,(state,action)=>{
-        state.isLoading=true
-        state.error=null
+      .addCase(updateUserProfileDetails.pending, (state) => {
+        state.profileDetails.isLoading = true
+        state.profileDetails.error = null
       })
-      .addCase(fetchUserProfileDetails.fulfilled,(state,action)=>{
-        state.isLoading=false
-        state.data=action.payload
+      .addCase(updateUserProfileDetails.fulfilled, (state, action) => {
+        state.profileDetails.isLoading = false
+        state.profileDetails.data = action.payload
       })
-      .addCase(fetchUserProfileDetails.rejected,(state,action)=>{
-        state.isLoading=false
-        state.error=action.payload
+      .addCase(updateUserProfileDetails.rejected, (state, action) => {
+        state.profileDetails.isLoading = false
+        state.profileDetails.error = action.payload
       })
   },
 })
 
 export const { clearProfile } = profileSlice.actions
 export default profileSlice.reducer
-

@@ -1,7 +1,7 @@
 import { useDispatch, useSelector } from "react-redux"
 import { Link, useLocation } from "react-router-dom"
 import { User, Package, MapPin, Wallet, Camera } from "lucide-react"
-import { fetchUserProfile } from "../../../redux/profile/profileSlice"
+import { fetchUserProfile,updateUserProfile  } from "../../../redux/profile/profileSlice"
 import { useEffect } from "react"
 import { toast } from "react-toastify"
 
@@ -9,7 +9,7 @@ const UserSidebar = ({ onImageSelect }) => {
   const location = useLocation()
   const dispatch = useDispatch()
   const { user } = useSelector((state) => state.auth)
-  const { data: profile } = useSelector((state) => state.profile)
+  const { data: profile } = useSelector((state) => state.profile.basicProfile)
 
   const menuItems = [
     { icon: User, label: "Profile Information", path: "/user/profile-information" },
@@ -27,13 +27,14 @@ useEffect(() => {
       if (file.type === "image/jpeg" || file.type === "image/jpg") {
         try {
           await dispatch(updateUserProfile({ profilePicture: file })).unwrap()
+          toast.success("Profile picture updated successfully")
         } catch (error) {
           console.error("Error updating profile picture:", error)
-          // alert("Failed to update profile picture. Please try again.")
+          
           toast.error("Failed to update profile picture. Please try again.")
         }
       } else {
-        alert("Please upload a JPEG image.")
+        toast.error("Please upload a JPEG image.")
       }
     }
   }

@@ -2,92 +2,92 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams,Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchProducts,fetchSimilarProducts } from '../../../redux/product/userProductSlice';
-
+import  Lens from '../../../components/ui/lens'
 import './ProductDetail.css'
 
-const ImageMagnifier = ({ src }) => {
-  const [showMagnifier, setShowMagnifier] = useState(false);
-  const [[imgWidth, imgHeight], setSize] = useState([0, 0]);
-  const [[x, y], setXY] = useState([0, 0]);
-  const magnifierRef = useRef(null);
+// const ImageMagnifier = ({ src }) => {
+//   const [showMagnifier, setShowMagnifier] = useState(false);
+//   const [[imgWidth, imgHeight], setSize] = useState([0, 0]);
+//   const [[x, y], setXY] = useState([0, 0]);
+//   const magnifierRef = useRef(null);
 
-  // Calculate image dimensions on load
-  useEffect(() => {
-    const img = new Image();
-    img.src = src;
-    img.onload = () => {
-      setSize([img.width, img.height]);
-    };
-  }, [src]);
+//   // Calculate image dimensions on load
+//   useEffect(() => {
+//     const img = new Image();
+//     img.src = src;
+//     img.onload = () => {
+//       setSize([img.width, img.height]);
+//     };
+//   }, [src]);
 
-  const handleMouseEnter = (e) => {
-    const elem = e.currentTarget;
-    const { width, height } = elem.getBoundingClientRect();
-    setSize([width, height]);
-    setShowMagnifier(true);
-  };
+//   const handleMouseEnter = (e) => {
+//     const elem = e.currentTarget;
+//     const { width, height } = elem.getBoundingClientRect();
+//     setSize([width, height]);
+//     setShowMagnifier(true);
+//   };
 
-  const handleMouseMove = (e) => {
-    const elem = e.currentTarget;
-    const { top, left, width, height } = elem.getBoundingClientRect();
+//   const handleMouseMove = (e) => {
+//     const elem = e.currentTarget;
+//     const { top, left, width, height } = elem.getBoundingClientRect();
     
-    // Calculate cursor position
-    const x = ((e.pageX - left - window.scrollX) / width) * imgWidth;
-    const y = ((e.pageY - top - window.scrollY) / height) * imgHeight;
-    setXY([x, y]);
-  };
+//     // Calculate cursor position
+//     const x = ((e.pageX - left - window.scrollX) / width) * imgWidth;
+//     const y = ((e.pageY - top - window.scrollY) / height) * imgHeight;
+//     setXY([x, y]);
+//   };
 
-  return(
-  <div className="flex gap-8 items-start">
-      {/* Main image container */}
-      <div className="relative">
-        <img
-          src={src}
-          alt="Product"
-          className="w-[500px] h-[500px] object-contain cursor-crosshair"
-          onMouseEnter={handleMouseEnter}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={() => setShowMagnifier(false)}
-        />
-        {/* Small magnifier glass (optional) */}
-        {showMagnifier && (
-          <div
-            style={{
-              position: "absolute",
-              border: "1px solid #light gray",
-              backgroundColor: "rgba(255, 255, 255, 0.2)",
-              width: "150px",
-              height: "150px",
-              left: `${x - 75}px`,
-              top: `${y - 75}px`,
-              pointerEvents: "none",
-            }}
-          />
-        )}
-      </div>
+//   return(
+//   <div className="flex gap-8 items-start">
+//       {/* Main image container */}
+//       <div className="relative">
+//         <img
+//           src={src}
+//           alt="Product"
+//           className="w-[500px] h-[500px] object-contain cursor-crosshair"
+//           onMouseEnter={handleMouseEnter}
+//           onMouseMove={handleMouseMove}
+//           onMouseLeave={() => setShowMagnifier(false)}
+//         />
+//         {/* Small magnifier glass (optional) */}
+//         {showMagnifier && (
+//           <div
+//             style={{
+//               position: "absolute",
+//               border: "1px solid #light gray",
+//               backgroundColor: "rgba(255, 255, 255, 0.2)",
+//               width: "150px",
+//               height: "150px",
+//               left: `${x - 75}px`,
+//               top: `${y - 75}px`,
+//               pointerEvents: "none",
+//             }}
+//           />
+//         )}
+//       </div>
 
-      {/* Magnified view container */}
-      {showMagnifier && (
-        <div
-          ref={magnifierRef}
-          className="hidden lg:block w-[500px] h-[500px] overflow-hidden border border-gray-200 rounded-lg"
-        >
-          <img
-            src={src}
-            alt="Magnified"
-            style={{
-              width: `${imgWidth * 2}px`,
-              height: `${imgHeight * 2}px`,
-              transform: `translate(${-x * 2 + 250}px, ${-y * 2 + 250}px)`,
-              transformOrigin: 'center',
-              objectFit: 'contain',
-            }}
-          />
-        </div>
-      )}
-    </div>
-  );
-};
+//       {/* Magnified view container */}
+//       {showMagnifier && (
+//         <div
+//           ref={magnifierRef}
+//           className="hidden lg:block w-[500px] h-[500px] overflow-hidden border border-gray-200 rounded-lg"
+//         >
+//           <img
+//             src={src}
+//             alt="Magnified"
+//             style={{
+//               width: `${imgWidth*2}px`,
+//               height: `${imgHeight * 2}px`,
+//               transform: `translate(${-x * 2 + 250}px, ${-y * 2 + 250}px)`,
+//               transformOrigin: 'center',
+//               objectFit: 'cover',
+//             }}
+//           />
+//         </div>
+//       )}
+//     </div>
+//   );
+// };
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -208,13 +208,60 @@ const ProductDetail = () => {
       </nav>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Left Column - Images */}
+
+{/*         
         <div className="overflow-x-hidden">
           <div className="mb-4">
             <ImageMagnifier src={product.images[currentImageIndex].image} />
-          </div>
-          
+          </div> */}
+                  <div className="relative w-full max-w-[500px] mx-auto">
+          <Lens>
+            <img
+              src={product.images[currentImageIndex].image}
+              alt={product.name}
+              className="w-full h-[500px] object-contain"
+            />
+          </Lens>
           {/* Thumbnails */}
+
           <div className="relative mt-4">
+            <button 
+              onClick={() => scrollThumbnails('left')}
+              className="absolute left-0 top-1/2 transform -translate-y-1/2 bg-white rounded-full p-2 shadow-md z-10"
+            >
+              ←
+            </button>
+            <div 
+              ref={scrollRef}
+              className="flex space-x-2 overflow-x-hidden relative mx-8 scroll-smooth"
+            >
+              {product.images.map((image, index) => (
+                <button
+                  key={index}
+                  className={`flex-shrink-0 ${
+                    currentImageIndex === index 
+                      ? 'border-2 border-blue-500' 
+                      : 'border border-gray-200'
+                  }`}
+                  onClick={() => setCurrentImageIndex(index)}
+                >
+                  <img
+                    src={image.image}
+                    alt={`Thumbnail ${index + 1}`}
+                    className="w-16 h-16 object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+            <button 
+              onClick={() => scrollThumbnails('right')}
+              className="absolute right-0 top-1/2 transform -translate-y-1/2 bg-white rounded-full p-2 shadow-md z-10"
+            >
+              →
+            </button>
+          </div>
+        </div>
+          {/* <div className="relative mt-4">
             <button 
               onClick={() => scrollThumbnails('left')}
               className="absolute left-0 top-1/2 transform -translate-y-1/2 bg-white rounded-full p-2 shadow-md z-10"
@@ -251,10 +298,10 @@ const ProductDetail = () => {
               →
             </button>
           </div>
-        </div>
+        </div> */}
 
         {/* Right Column - Product Details */}
-        <div>
+        <div className="relative">
           <h1 className="text-3xl font-bold text-gray-800 mb-4">{product.name}</h1>
           <div className="flex items-center mb-4">
             {[...Array(5)].map((_, index) => (
@@ -444,3 +491,4 @@ const ProductDetail = () => {
 };
 
 export default ProductDetail;
+

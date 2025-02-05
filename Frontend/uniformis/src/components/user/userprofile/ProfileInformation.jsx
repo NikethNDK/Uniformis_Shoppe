@@ -8,7 +8,7 @@ import { updateUserProfileDetails,fetchUserProfileDetails } from "../../../redux
 export default function ProfileInformation() {
   const dispatch=useDispatch()
   const { user } = useSelector((state) => state.auth)
-  const { data:profile,isLoading, error } = useSelector((state) => state.profile)
+  const { data: profileDetails, isLoading, error } = useSelector((state) => state.profile.profileDetails)
   
  
   const [formData, setFormData] = useState({
@@ -27,16 +27,16 @@ export default function ProfileInformation() {
 
 
   useEffect(() => {
-    if (user && profile) {
+    if (user && profileDetails) {
       setFormData({
-        first_name: profile.first_name || "",
-        last_name: profile.last_name || "",
-        email: profile.email || "",
-        phone_number: profile.phone_number || "",
-        date_of_birth: profile.date_of_birth || "",
+        first_name: profileDetails.first_name || "",
+        last_name: profileDetails.last_name || "",
+        email: profileDetails.email || "",
+        phone_number: profileDetails.phone_number || "",
+        date_of_birth: profileDetails.date_of_birth || "",
       })
     }
-  }, [profile])
+  }, [profileDetails])
 
   const handleChange = (e) => {
     const { name, value } = e.target

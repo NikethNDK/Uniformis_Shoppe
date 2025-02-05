@@ -35,6 +35,7 @@ class UserSerializer(serializers.ModelSerializer):
         print("User successfully updated")
         return instance
 
+        
 
 
 class UserProfileSerializer(serializers.ModelSerializer):

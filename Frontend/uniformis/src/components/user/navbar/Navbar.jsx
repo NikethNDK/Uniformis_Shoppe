@@ -5,12 +5,12 @@ import { useSelector, useDispatch } from "react-redux"
 import { clearAuthData, setAuthData } from "../../../redux/auth/authSlice"
 import { clearProfile } from "../../../redux/profile/profileSlice"
 import logo from "../../../assets/logo.png"
-
+import { fetchUserProfile  } from "../../../redux/profile/profileSlice"
 
 export default function Navbar() {
   const [searchQuery, setSearchQuery] = useState("")
   const { isAuthenticated, user } = useSelector((state) => state.auth)
-  const { data: profile } = useSelector((state) => state.profile)
+  const { data: profile } = useSelector((state) => state.profile.basicProfile)
   const dispatch = useDispatch()
   const navigate = useNavigate()
 
@@ -20,6 +20,10 @@ export default function Navbar() {
     if (token && user) {
       dispatch(setAuthData({ user, token }))
     }
+  }, [dispatch])
+
+  useEffect(() => {
+    dispatch(fetchUserProfile())
   }, [dispatch])
 
   const handleLogout = () => {
