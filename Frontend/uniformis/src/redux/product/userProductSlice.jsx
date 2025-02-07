@@ -80,6 +80,60 @@ export const fetchMoreProducts = createAsyncThunk(
   },
 )
 
+// //working code
+// export const fetchNewProducts = createAsyncThunk(
+//   "userProducts/fetchNewProducts", 
+//   async (_, { rejectWithValue }) => {
+//     try {
+//       const response = await apiHelpers.get("/products/items/")
+//       console.log("fetch new products response:", response)
+      
+//       const responseData = response.hasOwnProperty('results') ? response : response.data
+
+//       // Log the data we're going to work with
+//       console.log("Response data to process:", responseData)
+
+//       // More flexible validation
+//       if (!responseData || (!responseData.results && !Array.isArray(responseData))) {
+//         throw new Error('Invalid response format')
+//       }
+
+//       // If response is already in the correct format, return it
+//       if (responseData.hasOwnProperty('results')) {
+//         return responseData
+//       }
+
+//       // If response is an array, format it to match expected structure
+//       if (Array.isArray(responseData)) {
+//         return {
+//           results: responseData,
+//           count: responseData.length,
+//           next: null,
+//           previous: null
+//         }
+//       }
+
+//       throw new Error('Unexpected response format')
+//     } catch (error) {
+//       console.error("API Error:", error)
+//       return rejectWithValue(error.message || "Failed to fetch products")
+//     }
+//   }
+// )
+
+export const fetchNewProducts = createAsyncThunk(
+  "userProducts/fetchNewProducts",
+  async (page = 1, { rejectWithValue }) => {
+    try {
+      const response = await apiHelpers.get(`/products/items/?page=${page}`);
+      return response.data;
+    } catch (error) {
+      console.error("API Error:", error);
+      return rejectWithValue(error.message || "Failed to fetch products");
+    }
+  }
+);
+
 const userProductsSlice = createSlice({
   name: "userProducts",
   initialState,
@@ -126,6 +180,57 @@ const userProductsSlice = createSlice({
       state.loading = false;
       state.error = action.payload;
     });
+  //   builder.addCase(fetchNewProducts.pending, (state) => {
+  //     state.loading = true
+  //     state.error = null
+  //   })
+  //   .addCase(fetchNewProducts.fulfilled, (state, action) => {
+  //     // state.loading = false
+  //     // state.products = action.payload.results
+  //     // state.count = action.payload.count
+  //     state.loading = false
+  //       // Handle the paginated response structure
+  //       state.products = action.payload?.results || []
+  //       state.totalCount = action.payload?.count || 0
+  //       state.nextPage = action.payload?.next || null
+  //       state.previousPage = action.payload?.previous || null
+  //       state.error = null
+  //   })
+  //   .addCase(fetchNewProducts.rejected, (state, action) => {
+  //     state.loading = false
+  //     state.products = []
+  //     state.error = action.error.message
+  //   })
+  // },
+
+
+
+  builder
+      .addCase(fetchNewProducts.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchNewProducts.fulfilled, (state, action) => {
+        if (state.currentPage === 1) {
+          // First page: replace existing products
+          state.products = action.payload?.results || [];
+        } else {
+          // Subsequent pages: append to existing products
+          state.products = [...state.products, ...(action.payload?.results || [])];
+        }
+        state.loading = false;
+        state.totalCount = action.payload?.count || 0;
+        state.nextPage = action.payload?.next || null;
+        state.previousPage = action.payload?.previous || null;
+        state.error = null;
+        state.currentPage += 1;
+      })
+      .addCase(fetchNewProducts.rejected, (state, action) => {
+        state.loading = false;
+        state.products = [];
+        state.error = action.error.message;
+      });
+  
   },
 })
 

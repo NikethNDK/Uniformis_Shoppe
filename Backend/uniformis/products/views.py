@@ -65,7 +65,9 @@ class ColorViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAdminUser]
 
 class ProductPagination(PageNumberPagination):
-    page_size=6
+    page_size=10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
@@ -100,7 +102,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         if self.request.user.is_staff:
             # return Product.objects.all()
             return Product.objects.filter(is_deleted=False).order_by('-id')
-        return Product.objects.filter(is_active=True,is_deleted=False)
+        return Product.objects.filter(is_active=True,is_deleted=False).order_by('-created_at')
     
     # @action(detail=False, methods=['GET'])
     # def best_sellers(self, request):

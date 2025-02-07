@@ -27,6 +27,7 @@ import CartPage from "./components/user/order/Cart.jsx";
 import CheckoutPage from "./components/user/order/CheckOut.jsx";
 import TrackOrder from "./components/user/order/TrackOrder.jsx";
 import AdminOrderManagement from "./components/admin/OrderManagement/OrderManagement.jsx";
+import HomePage from "./pages/user/Home.jsx";
 function App() {
   return (
     <>
@@ -59,6 +60,7 @@ function App() {
           <Route path='add-to-cart' element={<CartPage/>}/>
           <Route path='checkout' element={<CheckoutPage/>}/>
           <Route path='trackorder' element={<TrackOrder/>}/>
+          <Route path="home" element={<HomePage />} />
         </Route>
 
         <Route path="/user-profile" element={<UserProfile />} />
