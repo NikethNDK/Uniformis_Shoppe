@@ -23,6 +23,10 @@ import ColorManagement from "./components/admin/Products/Color.jsx";
 import ProfileInformation from "./components/user/userprofile/ProfileInformation.jsx";
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import AddressManagement from "./components/user/userprofile/AddressManagement.jsx";
+import CartPage from "./components/user/order/Cart.jsx";
+import CheckoutPage from "./components/user/order/CheckOut.jsx";
+import TrackOrder from "./components/user/order/TrackOrder.jsx";
+import AdminOrderManagement from "./components/admin/OrderManagement/OrderManagement.jsx";
 function App() {
   return (
     <>
@@ -39,6 +43,7 @@ function App() {
           <Route path="size" element={<SizeManagement/>}/>
           <Route path='category' element={<CategoryManagement/>}/>
           <Route path='color' element={<ColorManagement/>}/>
+          <Route path='ordermanagement' element={<AdminOrderManagement/>}/>
         </Route>
         <Route path="/admin/editUser" element={<AdminEditUser />} />
         
@@ -51,6 +56,9 @@ function App() {
           <Route path="product/:id" element={<ProductDetail />} />
           <Route path="profile-information" element={<ProfileInformation />}/>
           <Route path="address" element={<AddressManagement />} />
+          <Route path='add-to-cart' element={<CartPage/>}/>
+          <Route path='checkout' element={<CheckoutPage/>}/>
+          <Route path='trackorder' element={<TrackOrder/>}/>
         </Route>
 
         <Route path="/user-profile" element={<UserProfile />} />

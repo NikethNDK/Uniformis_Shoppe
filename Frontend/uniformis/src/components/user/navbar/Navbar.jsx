@@ -6,11 +6,13 @@ import { clearAuthData, setAuthData } from "../../../redux/auth/authSlice"
 import { clearProfile } from "../../../redux/profile/profileSlice"
 import logo from "../../../assets/logo.png"
 import { fetchUserProfile  } from "../../../redux/profile/profileSlice"
+import { fetchCart } from "../../../redux/cart/cartSlice"
 
 export default function Navbar() {
   const [searchQuery, setSearchQuery] = useState("")
   const { isAuthenticated, user } = useSelector((state) => state.auth)
   const { data: profile } = useSelector((state) => state.profile.basicProfile)
+  const { itemCount } = useSelector((state) => state.cart)
   const dispatch = useDispatch()
   const navigate = useNavigate()
 
@@ -23,8 +25,11 @@ export default function Navbar() {
   }, [dispatch])
 
   useEffect(() => {
-    dispatch(fetchUserProfile())
-  }, [dispatch])
+    if (isAuthenticated) {
+      dispatch(fetchUserProfile())
+      dispatch(fetchCart())
+    }
+  }, [dispatch, isAuthenticated])
 
   const handleLogout = () => {
     dispatch(clearAuthData())
@@ -62,8 +67,13 @@ export default function Navbar() {
             <Link to="/wishlist" className="hover:text-primary">
               <Heart className="h-6 w-6" />
             </Link>
-            <Link to="/cart" className="hover:text-primary">
+            <Link to="/user/add-to-cart" className="hover:text-primary relative">
               <ShoppingCart className="h-6 w-6" />
+              {itemCount > 0 && (
+              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                {itemCount}
+              </span>
+            )}
             </Link>
             {isAuthenticated ? (
               <div className="flex items-center gap-4">

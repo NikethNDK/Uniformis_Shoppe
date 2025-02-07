@@ -1,0 +1,38 @@
+.admin-order-management {
+  padding: 1.5rem;
+  min-height: 100vh;
+  background-color: #f9fafb;
+}
+
+/* Adjust the dashboard container to accommodate the sidebar */
+/* .dashboard-container {
+  display: flex;
+  min-height: 100vh;
+} */
+
+/* Adjust the main content area */
+.content1{
+  flex: 1;
+  margin-left: 280px; /* Should match your sidebar width */
+  min-height: 100vh;
+  background-color: #f9fafb;
+  overflow-x: hidden;
+}
+
+/* Make the table responsive */
+@media (max-width: 1024px) {
+  .content {
+    margin-left: 0;
+    padding-left: 280px;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-order-management {
+    padding: 1rem;
+  }
+  
+  .content {
+    padding-left: 0;
+  }
+}

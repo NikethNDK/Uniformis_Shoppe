@@ -96,6 +96,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount.providers.google',
     'user_app',
     'products',
+    'orders',
 ]
 GOOGLE_CLIENT_ID =config('google_id')
 # Google OAuth2 settings

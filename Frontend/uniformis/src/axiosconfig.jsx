@@ -39,6 +39,20 @@ const productApi = axios.create({
   baseURL: `${BASE_URL}/api/products`,
 });
 
+// Cart API specifically for cart endpoints
+const cartApi = axios.create({
+  ...defaultConfig,
+  baseURL: `${BASE_URL}/api/orders/cart`,
+});
+
+
+// Order API specifically for order endpoints
+const orderApi = axios.create({
+  ...defaultConfig,
+  baseURL: `${BASE_URL}/api/orders/orders`,
+});
+
+
 // Common error handler
 const handleApiError = (error) => {
   if (error.response) {
@@ -114,6 +128,22 @@ productApi.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+cartApi.interceptors.request.use(
+  (config) => {
+    config.headers['Authorization'] = getAuthHeader();
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+orderApi.interceptors.request.use(
+  (config) => {
+    config.headers['Authorization'] = getAuthHeader();
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+
 // Response interceptor to handle token refresh
 const createResponseInterceptor = (instance) => {
   return instance.interceptors.response.use(
@@ -150,6 +180,8 @@ const createResponseInterceptor = (instance) => {
 // Apply response interceptor to both instances
 createResponseInterceptor(axiosInstance);
 createResponseInterceptor(productApi);
+createResponseInterceptor(cartApi);
+createResponseInterceptor(orderApi); 
 
 // Helper functions for common API operations
 const apiHelpers = {
@@ -191,8 +223,85 @@ const apiHelpers = {
     } catch (error) {
       throw handleApiError(error);
     }
+  },
+  cart: {
+    addItem: async (data) => {
+      try {
+        const response = await cartApi.post('/add_item/', data);
+        return response.data;
+      } catch (error) {
+        throw handleApiError(error);
+      }
+    },
+    removeItem: async (data) => {
+      try {
+        const response = await cartApi.post('/remove_item/', data);
+        return response.data;
+      } catch (error) {
+        throw handleApiError(error);
+      }
+    },
+    updateQuantity: async (data) => {
+      try {
+        const response = await cartApi.post('/update_quantity/', data);
+        return response.data;
+      } catch (error) {
+        throw handleApiError(error);
+      }
+    },
+    getCart: async () => {
+      try {
+        const response = await cartApi.get('/');
+        return response.data;
+      } catch (error) {
+        throw handleApiError(error);
+      }
+    }
+  },
+  
+  // Order operations
+  orders: {
+    createFromCart: async (data) => {
+      try {
+        const response = await orderApi.post('/create_from_cart/', data);
+        return response.data;
+      }catch (error) {
+        const errorResponse = error.response?.data || {}
+        throw {
+          message: errorResponse.error || "Failed to create order",
+          type: error.response?.status === 404 ? "NOT_FOUND" : "ERROR",
+          details: errorResponse
+        }
+      }
+    },
+    getOrders: async () => {
+      try {
+        const response = await orderApi.get('/');
+        return response.data;
+      } catch (error) {
+        throw {
+          message: "Failed to fetch orders",
+          type: "ERROR",
+          details: error.response?.data
+        }
+      }
+    },
+      // Get single order
+      getOrder: async (orderId) => {
+        try {
+          const response = await orderApi.get(`/${orderId}/`)
+          return response.data
+        } catch (error) {
+          throw {
+            message: "Failed to fetch order details",
+            type: error.response?.status === 404 ? "NOT_FOUND" : "ERROR",
+            details: error.response?.data
+          }
+        }
+      }
   }
+
 };
 
-export { authApi, productApi, apiHelpers, setAuthTokens, clearAuthTokens };
+export { authApi, productApi,cartApi,orderApi, apiHelpers, setAuthTokens, clearAuthTokens };
 export default axiosInstance;

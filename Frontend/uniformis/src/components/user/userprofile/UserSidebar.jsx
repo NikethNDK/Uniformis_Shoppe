@@ -13,7 +13,7 @@ const UserSidebar = ({ onImageSelect }) => {
 
   const menuItems = [
     { icon: User, label: "Profile Information", path: "/user/profile-information" },
-    { icon: Package, label: "My Orders", path: "/orders" },
+    { icon: Package, label: "My Orders", path: "/user/trackorder" },
     { icon: MapPin, label: "Manage Addresses", path: "/user/address" },
     { icon: Wallet, label: "Wallet", path: "/wallet" },
   ]

@@ -390,7 +390,8 @@ const ProductList = () => {
           </thead>
           <tbody>
             {Array.isArray(products) && products.length > 0 ? (
-              products.map((product) => (
+              products.map((product,index) => (
+                <>
                 <tr key={product.id}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <img
@@ -439,6 +440,12 @@ const ProductList = () => {
                     </div>
                   </td>
                 </tr>
+                {index < products.length - 1 && (
+        <tr>
+          <td colSpan="6" className="border-b border-gray-400"></td>
+        </tr>
+      )}
+                </>
               ))
             ) : (
               <tr>
@@ -446,9 +453,11 @@ const ProductList = () => {
                   No products found
                 </td>
               </tr>
+            
             )}
           </tbody>
         </table>
+        <hr />
       </div>
       <div className="mt-4 flex justify-center">
         {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (

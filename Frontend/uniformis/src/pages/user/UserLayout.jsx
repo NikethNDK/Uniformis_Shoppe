@@ -56,7 +56,7 @@ const UserLayout = () => {
   const [selectedImage, setSelectedImage] = useState(null)
 
   // routes where the user sidebar should be shown
-  const sidebarRoutes = ["/user/profile-information","/user/address"]
+  const sidebarRoutes = ["/user/profile-information","/user/address","/user/trackorder"]
 
   // Check if the current route is in sidebarRoutes
   const showSidebar = sidebarRoutes.includes(location.pathname)

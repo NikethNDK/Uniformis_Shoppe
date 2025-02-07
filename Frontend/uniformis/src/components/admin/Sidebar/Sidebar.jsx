@@ -29,7 +29,7 @@ function Sidebar() {
       items: [
         { path: "/admin/dashboard", icon: FaChartBar, label: "Dashboard" },
         { path: "/admin/products", icon: FaBox, label: "Products" },
-        { path: "/orders", icon: FaShoppingCart, label: "Orders" },
+        { path: "/admin/ordermanagement", icon: FaShoppingCart, label: "Orders" },
         { path: "/admin/customerManagement", icon: FaUser, label: "Customers" },
         { path: "/admin/size", icon: FaRuler, label: "Size" },
         { path: "/admin/category", icon: FaThLarge, label: "Category" },

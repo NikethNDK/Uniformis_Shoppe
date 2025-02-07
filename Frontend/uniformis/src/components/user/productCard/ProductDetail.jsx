@@ -3,95 +3,15 @@ import { useParams,Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchProducts,fetchSimilarProducts } from '../../../redux/product/userProductSlice';
 import  Lens from '../../../components/ui/lens'
+import { useNavigate } from 'react-router-dom';
 import './ProductDetail.css'
-
-// const ImageMagnifier = ({ src }) => {
-//   const [showMagnifier, setShowMagnifier] = useState(false);
-//   const [[imgWidth, imgHeight], setSize] = useState([0, 0]);
-//   const [[x, y], setXY] = useState([0, 0]);
-//   const magnifierRef = useRef(null);
-
-//   // Calculate image dimensions on load
-//   useEffect(() => {
-//     const img = new Image();
-//     img.src = src;
-//     img.onload = () => {
-//       setSize([img.width, img.height]);
-//     };
-//   }, [src]);
-
-//   const handleMouseEnter = (e) => {
-//     const elem = e.currentTarget;
-//     const { width, height } = elem.getBoundingClientRect();
-//     setSize([width, height]);
-//     setShowMagnifier(true);
-//   };
-
-//   const handleMouseMove = (e) => {
-//     const elem = e.currentTarget;
-//     const { top, left, width, height } = elem.getBoundingClientRect();
-    
-//     // Calculate cursor position
-//     const x = ((e.pageX - left - window.scrollX) / width) * imgWidth;
-//     const y = ((e.pageY - top - window.scrollY) / height) * imgHeight;
-//     setXY([x, y]);
-//   };
-
-//   return(
-//   <div className="flex gap-8 items-start">
-//       {/* Main image container */}
-//       <div className="relative">
-//         <img
-//           src={src}
-//           alt="Product"
-//           className="w-[500px] h-[500px] object-contain cursor-crosshair"
-//           onMouseEnter={handleMouseEnter}
-//           onMouseMove={handleMouseMove}
-//           onMouseLeave={() => setShowMagnifier(false)}
-//         />
-//         {/* Small magnifier glass (optional) */}
-//         {showMagnifier && (
-//           <div
-//             style={{
-//               position: "absolute",
-//               border: "1px solid #light gray",
-//               backgroundColor: "rgba(255, 255, 255, 0.2)",
-//               width: "150px",
-//               height: "150px",
-//               left: `${x - 75}px`,
-//               top: `${y - 75}px`,
-//               pointerEvents: "none",
-//             }}
-//           />
-//         )}
-//       </div>
-
-//       {/* Magnified view container */}
-//       {showMagnifier && (
-//         <div
-//           ref={magnifierRef}
-//           className="hidden lg:block w-[500px] h-[500px] overflow-hidden border border-gray-200 rounded-lg"
-//         >
-//           <img
-//             src={src}
-//             alt="Magnified"
-//             style={{
-//               width: `${imgWidth*2}px`,
-//               height: `${imgHeight * 2}px`,
-//               transform: `translate(${-x * 2 + 250}px, ${-y * 2 + 250}px)`,
-//               transformOrigin: 'center',
-//               objectFit: 'cover',
-//             }}
-//           />
-//         </div>
-//       )}
-//     </div>
-//   );
-// };
+import { toast } from 'react-toastify';
+import { addToCart } from '../../../redux/cart/cartSlice';
 
 const ProductDetail = () => {
   const { id } = useParams();
   const dispatch = useDispatch();
+  const navigate =useNavigate();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [selectedSize, setSelectedSize]=useState(null)
   const [selectedColor, setSelectedColor]=useState(null)
@@ -179,6 +99,38 @@ const ProductDetail = () => {
     return product.variants.filter((v) => v.size.name === size).map((v) => v.color)
   }
 
+  const handleAddToCart = async () => {
+    try {
+      await dispatch(addToCart({
+        variant_id: selectedVariant.id,
+        quantity: quantity
+      })).unwrap()
+    } catch (error) {
+      // Error handling is already done in the slice
+      toast.error('Failed to add to cart');
+      console.error('Failed to add to cart:', error);
+
+    }
+  };
+
+  const handleBuyNow = async () => {
+    if (!selectedVariant) return;
+    
+    try {
+      // First add to cart
+      await dispatch(addToCart({ 
+        variantId: selectedVariant.id, 
+        quantity: 1 
+      })).unwrap();
+      
+      // Navigate to checkout page
+      navigate('/user/checkout');
+    } catch (error) {
+      console.error('Failed to proceed to checkout:', error);
+    }
+  };
+
+
   if (loading || !product) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -209,12 +161,8 @@ const ProductDetail = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Left Column - Images */}
 
-{/*         
-        <div className="overflow-x-hidden">
-          <div className="mb-4">
-            <ImageMagnifier src={product.images[currentImageIndex].image} />
-          </div> */}
-                  <div className="relative w-full max-w-[500px] mx-auto">
+
+        <div className="relative w-full max-w-[500px] mx-auto">
           <Lens>
             <img
               src={product.images[currentImageIndex].image}
@@ -261,44 +209,6 @@ const ProductDetail = () => {
             </button>
           </div>
         </div>
-          {/* <div className="relative mt-4">
-            <button 
-              onClick={() => scrollThumbnails('left')}
-              className="absolute left-0 top-1/2 transform -translate-y-1/2 bg-white rounded-full p-2 shadow-md z-10"
-            >
-              ←
-            </button>
-            <div 
-              ref={scrollRef}
-              className="flex space-x-2 overflow-x-hidden relative mx-8 scroll-smooth"
-              style={{ scrollBehavior: 'smooth' }}
-            >
-              {product.images.map((image, index) => (
-                <button
-                  key={index}
-                  className={`flex-shrink-0 ${
-                    currentImageIndex === index 
-                      ? 'border-2 border-blue-500' 
-                      : 'border border-gray-200'
-                  }`}
-                  onClick={() => handleThumbnailClick(index)}
-                >
-                  <img
-                    src={image.image}
-                    alt={`Thumbnail ${index + 1}`}
-                    className="w-16 h-16 object-cover"
-                  />
-                </button>
-              ))}
-            </div>
-            <button 
-              onClick={() => scrollThumbnails('right')}
-              className="absolute right-0 top-1/2 transform -translate-y-1/2 bg-white rounded-full p-2 shadow-md z-10"
-            >
-              →
-            </button>
-          </div>
-        </div> */}
 
         {/* Right Column - Product Details */}
         <div className="relative">
@@ -320,9 +230,7 @@ const ProductDetail = () => {
           {selectedVariant && (
             <div className="text-2xl font-bold text-green-600 mb-4">₹{selectedVariant.price}</div>
           )}
-          {/* <div className="text-2xl font-bold text-green-600 mb-4">
-            ₹{product.price}
-          </div> */}
+  
 
           <div className="mb-4">
             <span className="text-gray-600">Category: </span>
@@ -415,18 +323,14 @@ const ProductDetail = () => {
           <div className="flex space-x-4">
             <button
               className="px-6 py-3 bg-orange-500 text-white rounded-md hover:bg-orange-600 flex-1"
-              onClick={() => {
-                /* Add to cart logic */
-              }}
+              onClick={() =>{handleAddToCart()}}
               disabled={!selectedVariant || selectedVariant.stock_quantity === 0}
             >
               Add to Cart
             </button>
             <button
               className="px-6 py-3 bg-green-500 text-white rounded-md hover:bg-green-600 flex-1"
-              onClick={() => {
-                /* Buy now logic */
-              }}
+              onClick={() =>handleBuyNow()}
               disabled={!selectedVariant || selectedVariant.stock_quantity === 0}
             >
               Buy Now
