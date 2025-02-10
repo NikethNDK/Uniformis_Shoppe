@@ -19,7 +19,7 @@ export const fetchCart = createAsyncThunk(
       const response = await apiHelpers.cart.getCart();
       console.log('resp in slice', response[0].items);
 
-      // Map through items to format the data
+      // formatting the data
       
       const formattedItems = response[0].items.map(item => ({
         ...item,
@@ -31,7 +31,7 @@ export const fetchCart = createAsyncThunk(
        
         variant: {
           ...item.variant,
-          price: parseFloat(item.variant.price) // Convert price string to number if needed
+          price: parseFloat(item.variant.price) 
         }
       }));
       

@@ -76,11 +76,11 @@ class Order(models.Model):
         )
 
     def get_estimated_delivery(self):
-        """Get estimated delivery date (3 days from order creation)"""
+        # """Get estimated delivery date (3 days from order creation)"""
         return self.created_at + timedelta(days=3)
 
     def update_status(self):
-        """Auto-update order status based on time"""
+        # """Auto-update order status based on time"""
         if self.status == 'cancelled':
             return
 

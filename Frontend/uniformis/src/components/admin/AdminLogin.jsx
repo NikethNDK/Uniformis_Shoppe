@@ -85,23 +85,25 @@ const AdminLogin = () => {
     setLoading(true);
     
     try {
-      // First, get the CSRF token
+      // Get CSRF token
       await adminAxiosInstance.get('/admin/csrf/');
       
-      // Then make the login request
-      const response = await adminAxiosInstance.post('/admin/token/', 
-        { email, password },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      // Make login request
+      const response = await adminAxiosInstance.post('/admin/token/', {
+        email,
+        password
+      });
       
-      if (response.data.admin_token) {
-        localStorage.setItem('adminToken', response.data.admin_token);
-        localStorage.setItem('adminData', JSON.stringify(response.data));
-        dispatch(setAuthData(response.data));
+      // Check if login was successful
+      if (response.data.status === 'success') {
+        // Dispatch to Redux store
+        dispatch(setAuthData({
+          user: {
+            ...response.data.user,
+            isAdmin: true // Add flag to distinguish admin users
+          }
+        }));
+        
         toast.success('Login successful!');
         navigate('/admin/dashboard');
       } else {

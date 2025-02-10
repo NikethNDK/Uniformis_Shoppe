@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from "react-redux"
 import { fetchNewProducts } from "../../redux/product/userProductSlice"
 import ProductCard from "./ProductCard"
 import FilterComponent from "./FilterComponent"
-import { Link } from "react-router-dom"  // Changed from next/link to react-router-dom
+import { Link } from "react-router-dom"  
 
 const Home = () => {
   const dispatch = useDispatch()

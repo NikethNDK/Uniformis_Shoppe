@@ -182,8 +182,6 @@ export default function Navbar() {
     dispatch(clearAuthData())
     dispatch(clearProfile())
     navigate("/login")
-    localStorage.removeItem("token")
-    localStorage.removeItem("user")
   }
 
   // const { products, categories, loading, error, nextPage } = useSelector((state) => state.userProducts)
@@ -199,7 +197,7 @@ export default function Navbar() {
 
           <div className="flex-1 max-w-xl mx-8">
             <div className="relative">
-              {/* <Search className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /> */}
+              <Search className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 type="search"
                 placeholder="Search products..."

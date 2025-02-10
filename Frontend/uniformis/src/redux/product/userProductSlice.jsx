@@ -42,22 +42,22 @@ export const fetchSimilarProducts = createAsyncThunk(
     try {
       const response = await apiHelpers.get(`/products/items/${productId}/similar_products/`);
       
-      console.log("Similar Products API response:", response); // Debugging log
+      console.log("Similar Products API response:", response); 
 
       // Prepending the base URL to the image path
-      const BASE_URL = 'http://localhost:8000'; // Use the same BASE_URL as in your axiosConfig
+      const BASE_URL = 'http://localhost:8000'; 
 
       const updatedResponse = response.map((product) => ({
         ...product,
         images: product.images.map((image) => ({
           ...image,
-          image: `${BASE_URL}${image.image}`, // Prepend base URL to the image URL
+          image: `${BASE_URL}${image.image}`, 
         })),
       }));
 
       return updatedResponse || [];
     } catch (error) {
-      console.error("API Error:", error); // Log the error for debugging
+      console.error("API Error:", error);
       return rejectWithValue(error.message || "An error occurred while fetching similar products");
     }
   }
@@ -212,11 +212,11 @@ const userProductsSlice = createSlice({
       })
       .addCase(fetchNewProducts.fulfilled, (state, action) => {
         if (state.currentPage === 1) {
-          // First page: replace existing products
+          
           state.products = action.payload?.results || [];
         } else {
-          // Subsequent pages: append to existing products
-          state.products = [...state.products, ...(action.payload?.results || [])];
+         
+        state.products = [...state.products, ...(action.payload?.results || [])];
         }
         state.loading = false;
         state.totalCount = action.payload?.count || 0;

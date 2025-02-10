@@ -1,11 +1,24 @@
-import { createSlice } from "@reduxjs/toolkit";
 
-const storedUser = localStorage.getItem("user");
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import axiosInstance from "../../axiosconfig";  
+
+// Async thunk for logout
+export const clearAuthData = createAsyncThunk(
+  "auth/clearAuthData",
+  async (_, { rejectWithValue }) => {
+    try {
+      await axiosInstance.post("/logout/"); // Logout endpoint on the backend clears cookies
+      return true;
+    } catch (error) {
+      console.error("Logout failed:", error);
+      return rejectWithValue(error.response?.data || "Logout failed");
+    }
+  }
+);
+
 const initialState = {
-  user: storedUser && storedUser !== "undefined" ? JSON.parse(storedUser) : null,
-  token: localStorage.getItem("token") || null,
-  refresh_token: localStorage.getItem("refresh_token") || null,
-  isAuthenticated: !!localStorage.getItem("token"),
+  user: null,
+  isAuthenticated: false,
 };
 
 const authSlice = createSlice({
@@ -13,33 +26,22 @@ const authSlice = createSlice({
   initialState,
   reducers: {
     setAuthData(state, action) {
-      const { user, token, refresh_token } = action.payload;
-      console.log("User in authSlice",user)
-      // Update state
+      const { user } = action.payload;
       state.user = user;
-      state.token = token;
-      state.refresh_token = refresh_token;
       state.isAuthenticated = true;
-      
-      // Update localStorage
-      localStorage.setItem("user", JSON.stringify(user));
-      localStorage.setItem("token", token);
-      localStorage.setItem("refresh_token", refresh_token);
     },
-    clearAuthData(state) {
-      // Clear state
-      state.user = null;
-      state.token = null;
-      state.refresh_token = null;
-      state.isAuthenticated = false;
-      
-      // Clear localStorage
-      localStorage.removeItem("user");
-      localStorage.removeItem("token");
-      localStorage.removeItem("refresh_token");
-    },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(clearAuthData.fulfilled, (state) => {
+        state.user = null;
+        state.isAuthenticated = false;
+      })
+      .addCase(clearAuthData.rejected, (state, action) => {
+        console.error("Logout failed:", action.payload);
+      });
   },
 });
 
-export const { setAuthData, clearAuthData } = authSlice.actions;
+export const { setAuthData } = authSlice.actions;
 export default authSlice.reducer;

@@ -58,7 +58,7 @@ const UserLayout = () => {
   // routes where the user sidebar should be shown
   const sidebarRoutes = ["/user/profile-information","/user/address","/user/trackorder"]
 
-  // Check if the current route is in sidebarRoutes
+  
   const showSidebar = sidebarRoutes.includes(location.pathname)
 
   const handleImageSelect = (image) => {
@@ -67,8 +67,7 @@ const UserLayout = () => {
   }
 
   const handleImageCropComplete = (croppedImage) => {
-    // Handle the cropped image (e.g., update profile picture)
-    // You might want to dispatch an action here to update the profile picture
+   
     console.log("Cropped image:", croppedImage)
     setShowImageCropper(false)
   }

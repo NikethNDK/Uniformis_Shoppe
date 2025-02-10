@@ -22,5 +22,7 @@ urlpatterns = [
     path('user_profile_details/', profile_view, name='profile'),
     # path('profile/picture/', profile_picture_view, name='profile-picture'),
     path('', include(router.urls)),
+    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('logout/',LogoutView.as_view(),name='logout'),
   
 ]

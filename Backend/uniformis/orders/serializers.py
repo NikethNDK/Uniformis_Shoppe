@@ -44,6 +44,52 @@ class CartSerializer(serializers.ModelSerializer):
 
     def get_total_items(self, obj):
         return obj.get_total_items()
+    
+
+#latest
+
+class OrderItemSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = OrderItem
+        fields = ['id', 'product_name', 'size', 'color', 'quantity', 'price', 'total_price', 'image']
+    
+    def get_image(self, obj):
+        if obj.variant and obj.variant.product.images.exists():
+            request = self.context.get('request')
+            image_url = obj.variant.product.images.first().image.url
+            return request.build_absolute_uri(image_url) if request else image_url
+        return None
+
+class OrderSerializer(serializers.ModelSerializer):
+    items = OrderItemSerializer(many=True, read_only=True)
+    user = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Order
+        fields = [
+            'id', 'order_number', 'status', 'payment_status', 
+            'payment_method', 'total_amount', 'delivery_charges',
+            'created_at', 'items', 'user'
+        ]
+    
+    def get_user(self, obj):
+        return {
+            'id': obj.user.id,
+            'first_name': obj.user.first_name,
+            'last_name': obj.user.last_name,
+            'email': obj.user.email,
+            'phone_number': obj.user.phone_number
+        }
+
+class AddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Address
+        fields = [
+            'id', 'name', 'house_no', 'city', 'state', 'pin_code',
+            'address_type', 'landmark', 'mobile_number', 'alternate_number'
+        ]
 
 # class OrderItemSerializer(serializers.ModelSerializer):
 #     image = serializers.SerializerMethodField()
@@ -118,48 +164,3 @@ class CartSerializer(serializers.ModelSerializer):
 #             'created_at', 'items'
 #         ]
 
-
-#latest
-
-class OrderItemSerializer(serializers.ModelSerializer):
-    image = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = OrderItem
-        fields = ['id', 'product_name', 'size', 'color', 'quantity', 'price', 'total_price', 'image']
-    
-    def get_image(self, obj):
-        if obj.variant and obj.variant.product.images.exists():
-            request = self.context.get('request')
-            image_url = obj.variant.product.images.first().image.url
-            return request.build_absolute_uri(image_url) if request else image_url
-        return None
-
-class OrderSerializer(serializers.ModelSerializer):
-    items = OrderItemSerializer(many=True, read_only=True)
-    user = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = Order
-        fields = [
-            'id', 'order_number', 'status', 'payment_status', 
-            'payment_method', 'total_amount', 'delivery_charges',
-            'created_at', 'items', 'user'
-        ]
-    
-    def get_user(self, obj):
-        return {
-            'id': obj.user.id,
-            'first_name': obj.user.first_name,
-            'last_name': obj.user.last_name,
-            'email': obj.user.email,
-            'phone_number': obj.user.phone_number
-        }
-
-class AddressSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Address
-        fields = [
-            'id', 'name', 'house_no', 'city', 'state', 'pin_code',
-            'address_type', 'landmark', 'mobile_number', 'alternate_number'
-        ]

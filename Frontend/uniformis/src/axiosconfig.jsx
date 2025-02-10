@@ -1,229 +1,172 @@
 import axios from 'axios';
 
+
 const BASE_URL = 'http://localhost:8000';
+let isRefreshing = false;
+let failedQueue = [];
 
-// Utility functions for token management
-const getAuthHeader = () => {
-  const token = localStorage.getItem('token');
-  return token ? `Bearer ${token}` : '';
+const processQueue = (error, token = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
 };
 
-const clearAuthTokens = () => {
-  localStorage.removeItem('token');
-  localStorage.removeItem('refresh_token');
-};
-
-const setAuthTokens = (token, refreshToken) => {
-  localStorage.setItem('token', token);
-  localStorage.setItem('refresh_token', refreshToken);
-};
-
-// Default config
+// Default config for Axios instances
 const defaultConfig = {
   baseURL: `${BASE_URL}/api`,
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000, // 30 second timeout
+  timeout: 30000,
+  withCredentials: true,  // Include cookies with requests
 };
 
-// Create an Axios instance for authentication
+
+// Axios instances
 const authApi = axios.create(defaultConfig);
-
-// Create an Axios instance for authenticated requests
 const axiosInstance = axios.create(defaultConfig);
-
-// Create a specific Axios instance for product-related API calls
-const productApi = axios.create({
-  ...defaultConfig,
-  baseURL: `${BASE_URL}/api/products`,
-});
-
-// Cart API specifically for cart endpoints
-const cartApi = axios.create({
-  ...defaultConfig,
-  baseURL: `${BASE_URL}/api/orders/cart`,
-});
+const productApi = axios.create({ ...defaultConfig, baseURL: `${BASE_URL}/api/products` });
+const cartApi = axios.create({ ...defaultConfig, baseURL: `${BASE_URL}/api/orders/cart` });
+const orderApi = axios.create({ ...defaultConfig, baseURL: `${BASE_URL}/api/orders/orders` });
 
 
-// Order API specifically for order endpoints
-const orderApi = axios.create({
-  ...defaultConfig,
-  baseURL: `${BASE_URL}/api/orders/orders`,
-});
-
-
-// Common error handler
-const handleApiError = (error) => {
-  if (error.response) {
-    // If it's a verification required response, pass it through
-    if (error.response.status === 200 && error.response.data?.type === 'VERIFICATION_REQUIRED') {
-      return Promise.reject(error.response.data);
-    }
-    // Server responded with error status
-    switch (error.response.status) {
-      case 401:
-        return Promise.reject({
-          type: 'AUTH_ERROR',
-          message: 'Authentication failed',
-          details: error.response.data
-        });
-      case 403:
-        return Promise.reject({
-          type: 'FORBIDDEN',
-          message: 'Access denied',
-          details: error.response.data
-        });
-      case 404:
-        return Promise.reject({
-          type: 'NOT_FOUND',
-          message: 'Resource not found',
-          details: error.response.data
-        });
-      case 500:
-        return Promise.reject({
-          type: 'SERVER_ERROR',
-          message: 'Internal server error',
-          details: error.response.data
-        });
-      default:
-        return Promise.reject({
-          type: 'API_ERROR',
-          message: 'Request failed',
-          details: error.response.data
-        });
-    }
-  } else if (error.request) {
-    // Request was made but no response received
-    return Promise.reject({
-      type: 'NETWORK_ERROR',
-      message: 'Network error occurred',
-      details: error.request
-    });
-  } else {
-    // Something else happened while setting up the request
-    return Promise.reject({
-      type: 'REQUEST_ERROR',
-      message: 'Error setting up request',
-      details: error.message
-    });
+const refreshToken = async () => {
+  try {
+    const response = await axios.post(
+      `${BASE_URL}/api/token/refresh/`,
+      {},
+      { withCredentials: true }
+    );
+    return response.data;
+  } catch (error) {
+    return Promise.reject(error);
   }
 };
 
-// Interceptor for authenticated requests
-axiosInstance.interceptors.request.use(
-  (config) => {
-    config.headers['Authorization'] = getAuthHeader();
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
 
-// Apply same auth interceptor to product API
-productApi.interceptors.request.use(
-  (config) => {
-    config.headers['Authorization'] = getAuthHeader();
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-cartApi.interceptors.request.use(
-  (config) => {
-    config.headers['Authorization'] = getAuthHeader();
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-orderApi.interceptors.request.use(
-  (config) => {
-    config.headers['Authorization'] = getAuthHeader();
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-
-// Response interceptor to handle token refresh
-const createResponseInterceptor = (instance) => {
-  return instance.interceptors.response.use(
-    (response) => response,
-    async (error) => {
-      const originalRequest = error.config;
-      
-      if (error.response?.status === 401 && !originalRequest._retry) {
-        originalRequest._retry = true;
-        
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
         try {
-          const refreshToken = localStorage.getItem('refresh_token');
-          const response = await authApi.post('/token/refresh/', {
-            refresh: refreshToken
+          await new Promise((resolve, reject) => {
+            failedQueue.push({ resolve, reject });
           });
-          
-          const { access } = response.data;
-          localStorage.setItem('token', access);
-          
-          originalRequest.headers['Authorization'] = `Bearer ${access}`;
-          return instance(originalRequest);
-        } catch (refreshError) {
-          clearAuthTokens();
-          window.location.href = '/login';
-          return Promise.reject(refreshError);
+          return axiosInstance(originalRequest);
+        } catch (err) {
+          return Promise.reject(err);
         }
       }
-      
-      return handleApiError(error);
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const response = await axiosInstance.post('/token/refresh/');
+        isRefreshing = false;
+        processQueue(null);
+        return axiosInstance(originalRequest);
+      } catch (refreshError) {
+        isRefreshing = false;
+        processQueue(refreshError, null);
+        // Clear any auth state here
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
     }
+
+    return Promise.reject(error);
+  }
+);
+// Common error handler
+const handleApiError = async (error) => {
+  const originalRequest = error.config;
+
+  if (error.response) {
+    switch (error.response.status) {
+      case 401:
+        if (!originalRequest._retry) {
+          originalRequest._retry = true;
+          const tokenRefreshed = await refreshToken();
+          if (tokenRefreshed) {
+            return axiosInstance(originalRequest);  // Retry the original request
+          }
+        }
+        window.location.href = '/login';
+        break;
+      case 403:
+        console.error('Access denied');
+        break;
+      case 404:
+        console.error('Resource not found');
+        break;
+      case 500:
+        console.error('Server error');
+        break;
+      default:
+        console.error('API error');
+    }
+  } else {
+    console.error('Network error or request setup issue');
+  }
+  return Promise.reject(error);
+};
+
+// Apply interceptors to handle errors and token refresh
+const applyErrorInterceptor = (instance) => {
+  instance.interceptors.response.use(
+    (response) => response,
+    (error) => handleApiError(error)
   );
 };
 
-// Apply response interceptor to both instances
-createResponseInterceptor(axiosInstance);
-createResponseInterceptor(productApi);
-createResponseInterceptor(cartApi);
-createResponseInterceptor(orderApi); 
+applyErrorInterceptor(axiosInstance);
+applyErrorInterceptor(productApi);
+applyErrorInterceptor(cartApi);
+applyErrorInterceptor(orderApi);
 
-// Helper functions for common API operations
+// Helper functions for API calls
 const apiHelpers = {
-  // Generic GET request with error handling
   get: async (url, config = {}) => {
     try {
       const response = await axiosInstance.get(url, config);
       return response.data;
     } catch (error) {
-      throw handleApiError(error);
+      throw error;
     }
   },
-
-  // Generic POST request with error handling
   post: async (url, data = {}, config = {}) => {
     try {
       const response = await axiosInstance.post(url, data, config);
       return response.data;
     } catch (error) {
-      throw handleApiError(error);
+      throw error;
     }
   },
-
-  // Generic PUT request with error handling
   put: async (url, data = {}, config = {}) => {
     try {
       const response = await axiosInstance.put(url, data, config);
       return response.data;
     } catch (error) {
-      throw handleApiError(error);
+      throw error;
     }
   },
-
-  // Generic DELETE request with error handling
   delete: async (url, config = {}) => {
     try {
       const response = await axiosInstance.delete(url, config);
       return response.data;
     } catch (error) {
-      throw handleApiError(error);
+      throw error;
     }
   },
+  
   cart: {
     addItem: async (data) => {
       try {
@@ -259,19 +202,13 @@ const apiHelpers = {
     }
   },
   
-  // Order operations
   orders: {
     createFromCart: async (data) => {
       try {
         const response = await orderApi.post('/create_from_cart/', data);
         return response.data;
-      }catch (error) {
-        const errorResponse = error.response?.data || {}
-        throw {
-          message: errorResponse.error || "Failed to create order",
-          type: error.response?.status === 404 ? "NOT_FOUND" : "ERROR",
-          details: errorResponse
-        }
+      } catch (error) {
+        throw error;
       }
     },
     getOrders: async () => {
@@ -279,29 +216,20 @@ const apiHelpers = {
         const response = await orderApi.get('/');
         return response.data;
       } catch (error) {
-        throw {
-          message: "Failed to fetch orders",
-          type: "ERROR",
-          details: error.response?.data
-        }
+        throw error;
       }
     },
-      // Get single order
-      getOrder: async (orderId) => {
-        try {
-          const response = await orderApi.get(`/${orderId}/`)
-          return response.data
-        } catch (error) {
-          throw {
-            message: "Failed to fetch order details",
-            type: error.response?.status === 404 ? "NOT_FOUND" : "ERROR",
-            details: error.response?.data
-          }
-        }
+    getOrder: async (orderId) => {
+      try {
+        const response = await orderApi.get(`/${orderId}/`);
+        return response.data;
+      } catch (error) {
+        throw error;
       }
+    }
   }
-
 };
 
-export { authApi, productApi,cartApi,orderApi, apiHelpers, setAuthTokens, clearAuthTokens };
+export { authApi, productApi, cartApi, orderApi, apiHelpers };
 export default axiosInstance;
+

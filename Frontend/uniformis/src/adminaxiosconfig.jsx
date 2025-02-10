@@ -1,179 +1,411 @@
 // import axios from 'axios';
 
-// const BASE_URL='http://localhost:8000/';
-
-// const adminAxiosInstance = axios.create({
-//   baseURL: BASE_URL,
-// });
-
-// const productApi = axios.create({
-//   baseURL: `${BASE_URL}/api/products`,
-//   headers: {
-//     'Content-Type': 'application/json',
-//   },
-// });
-
-// const addAuthToken= (config) => {
-//     const adminToken = localStorage.getItem('adminToken');
-//     if (adminToken) {
-//       config.headers['Authorization'] = `Bearer ${adminToken}`;
-//     }
-//     return config;
-//   }
-
-// adminAxiosInstance.interceptors.request.use(addAuthToken, (error) => Promise.reject(error));
-// productApi.interceptors.request.use(addAuthToken, (error) => Promise.reject(error));
-
-// export default adminAxiosInstance;
-// export {productApi}
-
-
-
-// ///second workinfg
-// import axios from 'axios';
-
 // const BASE_URL = 'http://localhost:8000';
 
-// const adminAxiosInstance = axios.create({
-//   baseURL: `${BASE_URL}/api`,
-//   headers: {
-//     'Content-Type': 'application/json',
-//   },
-//   withCredentials: true, // Important for CSRF
-// });
+// let isRefreshing = false;
+// let failedQueue = [];
 
-// const productApi = axios.create({
+// const processQueue = (error, token = null) => {
+//   failedQueue.forEach(prom => {
+//     if (error) {
+//       prom.reject(error);
+//     } else {
+//       prom.resolve(token);
+//     }
+//   });
+//   failedQueue = [];
+// };
+
+// // Create base admin instance with common configurations
+// const createAdminInstance = (customConfig = {}) => {
+//   const defaultConfig = {
+//     baseURL: `${BASE_URL}/api`,
+//     headers: {
+//       'Content-Type': 'application/json',
+//     },
+//     timeout: 30000,
+//     withCredentials: true, // Ensure cookies are sent with every request
+//   };
+
+//   return axios.create({ ...defaultConfig, ...customConfig });
+// };
+
+// // Main admin instance
+// const adminAxiosInstance = createAdminInstance();
+
+// // Product API instance with specific configuration for file uploads
+// const productApi = createAdminInstance({
 //   baseURL: `${BASE_URL}/api/products`,
 //   headers: {
-//     'Content-Type': 'application/json',
+//     'Content-Type': 'multipart/form-data',
 //   },
-//   withCredentials: true, // Important for CSRF
 // });
 
-// const addAuthToken = (config) => {
-//   const adminToken = localStorage.getItem('adminToken');
-//   if (adminToken) {
-//     config.headers['Authorization'] = `Bearer ${adminToken}`;
+// // Order API instance
+// const orderApi = createAdminInstance({
+//   baseURL: `${BASE_URL}/api/orders/admin/orders`,
+// });
+
+// // Refresh token function
+// const refreshToken = async () => {
+//   try {
+//     const response = await axios.post(
+//       `${BASE_URL}/api/token/refresh/`,
+//       {},
+//       { 
+//         withCredentials: true,
+//         headers: {
+//           'Content-Type': 'application/json',
+//         }
+//       }
+//     );
+//     return response.data;
+//   } catch (error) {
+//     throw error;
 //   }
-//   return config;
+// };
+// adminAxiosInstance.interceptors.request.use(
+//   (config) => {
+//     const accessToken = document.cookie.split('; ').find(row => row.startsWith('access_token='));
+//     if (accessToken) {
+//       config.headers.Authorization = `Bearer ${accessToken.split('=')[1]}`;
+//     }
+//     return config;
+//   },
+//   (error) => Promise.reject(error)
+// );
+// // Enhanced error handler with detailed logging
+// const handleApiError = (error) => {
+//   if (error.response) {
+//     // Check for specific cookie-related errors
+//     if (error.response.status === 403) {
+//       console.error('CSRF Token Error or Cookie Issue:', {
+//         status: error.response.status,
+//         data: error.response.data,
+//         endpoint: error.config.url,
+//       });
+//     }
+//     return Promise.reject(error.response.data);
+//   } else if (error.request) {
+//     console.error('Network Error:', {
+//       request: error.request,
+//       endpoint: error.config.url,
+//     });
+//     return Promise.reject({ message: 'Network error occurred' });
+//   } else {
+//     console.error('Error:', error.message);
+//     return Promise.reject({ message: error.message });
+//   }
 // };
 
-// const clearAuthTokens = () => {
-//   localStorage.removeItem('token');
-//   localStorage.removeItem('refresh_token');
+// // Enhanced response interceptor with cookie handling
+// const createResponseInterceptor = (instance) => {
+//   // Request interceptor for special cases
+//   instance.interceptors.request.use(
+//     (config) => {
+//       // Special handling for file uploads
+//       if (config.headers['Content-Type'] === 'multipart/form-data') {
+//         // Keep the Content-Type header as is for file uploads
+//         return config;
+//       }
+//       return config;
+//     },
+//     (error) => Promise.reject(error)
+//   );
+
+//   // Response interceptor
+//   instance.interceptors.response.use(
+//     (response) => response,
+//     async (error) => {
+//       const originalRequest = error.config;
+
+//       if (error.response?.status === 401 && !originalRequest._retry) {
+//         if (isRefreshing) {
+//           return new Promise((resolve, reject) => {
+//             failedQueue.push({ resolve, reject });
+//           }).then(() => {
+//             return instance(originalRequest);
+//           }).catch(err => Promise.reject(err));
+//         }
+
+//         originalRequest._retry = true;
+//         isRefreshing = true;
+
+//         try {
+//           const newToken = await refreshToken();
+//           processQueue(null, newToken);
+//           return instance(originalRequest);
+//         } catch (refreshError) {
+//           processQueue(refreshError);
+//           window.dispatchEvent(new CustomEvent('admin-auth-error'));
+//           return Promise.reject(refreshError);
+//         } finally {
+//           isRefreshing = false;
+//         }
+//       }
+
+//       return handleApiError(error);
+//     }
+//   );
 // };
 
-// adminAxiosInstance.interceptors.request.use(addAuthToken, (error) => Promise.reject(error));
-// productApi.interceptors.request.use(addAuthToken, (error) => Promise.reject(error));
+// // Apply interceptors to all instances
+// [adminAxiosInstance, productApi, orderApi].forEach(instance => {
+//   createResponseInterceptor(instance);
+// });
+
+// // Enhanced API Helpers with proper error handling
+// const apiHelpers = {
+//   orders: {
+//     createFromCart: async (data) => {
+//       try {
+//         const response = await orderApi.post('/create_from_cart/', data);
+//         return response.data;
+//       } catch (error) {
+//         const errorResponse = error.response?.data || {};
+//         throw {
+//           message: errorResponse.error || 'Failed to create order',
+//           type: error.response?.status === 404 ? 'NOT_FOUND' : 'ERROR',
+//           details: errorResponse,
+//           status: error.response?.status,
+//         };
+//       }
+//     },
+//     getOrders: async (params = {}) => {
+//       try {
+//         const response = await orderApi.get('/', { params });
+//         return response.data;
+//       } catch (error) {
+//         throw {
+//           message: 'Failed to fetch orders',
+//           type: 'ERROR',
+//           details: error.response?.data,
+//           status: error.response?.status,
+//         };
+//       }
+//     },
+//     getOrder: async (orderId) => {
+//       try {
+//         const response = await orderApi.get(`/${orderId}/`);
+//         return response.data;
+//       } catch (error) {
+//         throw {
+//           message: 'Failed to fetch order details',
+//           type: error.response?.status === 404 ? 'NOT_FOUND' : 'ERROR',
+//           details: error.response?.data,
+//           status: error.response?.status,
+//         };
+//       }
+//     },
+//   },
+// };
 
 // export default adminAxiosInstance;
-// export { productApi,clearAuthTokens };
+// export { orderApi, productApi, apiHelpers };
+
+
+
+
 
 import axios from 'axios';
 
-const BASE_URL = 'http://localhost:8000';
 
-const adminAxiosInstance = axios.create({
+const BASE_URL = 'http://localhost:8000';
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+// Default config for Axios instances
+const defaultConfig = {
   baseURL: `${BASE_URL}/api`,
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true,
-});
-
-const productApi = axios.create({
-  baseURL: `${BASE_URL}/api/products`,
-  headers: {
-    'Content-Type': 'multipart/form-data',
-  },
-  withCredentials: true,
-});
-
-const orderApi = axios.create({
-  baseURL: `${BASE_URL}/api/orders/admin/orders`,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  withCredentials: true,
-});
-
-const addAuthToken = (config) => {
-  const adminToken = localStorage.getItem('adminToken');
-  if (adminToken) {
-    config.headers['Authorization'] = `Bearer ${adminToken}`;
-  }
-  return config;
+  timeout: 30000,
+  withCredentials: true,  // Include cookies with requests
 };
 
-const handleApiError = (error) => {
-  if (error.response) {
-    // Server responded with error
-    console.error('Server Error:', error.response.data);
-    return Promise.reject(error.response.data);
-  } else if (error.request) {
-    // Request made but no response
-    console.error('Network Error:', error.request);
-    return Promise.reject({ message: 'Network error occurred' });
-  } else {
-    // Something else went wrong
-    console.error('Error:', error.message);
-    return Promise.reject({ message: error.message });
+
+// Axios instances
+const authApi = axios.create(defaultConfig);
+const adminAxiosInstance = axios.create(defaultConfig);
+const productApi = axios.create({ ...defaultConfig, baseURL: `${BASE_URL}/api/products` });
+const cartApi = axios.create({ ...defaultConfig, baseURL: `${BASE_URL}/api/orders/cart` });
+const orderApi = axios.create({ ...defaultConfig, baseURL: `${BASE_URL}/api/orders/admin/orders` });
+
+
+const refreshToken = async () => {
+  try {
+    const response = await axios.post(
+      `${BASE_URL}/api/token/refresh/`,
+      {},
+      { 
+        withCredentials: true,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    return response.data;
+  } catch (error) {
+    throw error;
   }
 };
 
-// Response interceptor to handle token refresh
-const createResponseInterceptor = (instance) => {
-  return instance.interceptors.response.use(
+// Add request interceptor to ensure cookies are sent
+const addRequestInterceptor = (instance) => {
+  instance.interceptors.request.use(
+    (config) => {
+      config.withCredentials = true;
+      return config;
+    },
+    (error) => Promise.reject(error)
+  );
+};
+
+// Update response interceptor
+const addResponseInterceptor = (instance) => {
+  instance.interceptors.response.use(
     (response) => response,
     async (error) => {
       const originalRequest = error.config;
-      
+
       if (error.response?.status === 401 && !originalRequest._retry) {
+        if (isRefreshing) {
+          return new Promise((resolve, reject) => {
+            failedQueue.push({ resolve, reject });
+          }).then(() => {
+            return instance(originalRequest);
+          }).catch(err => Promise.reject(err));
+        }
+
         originalRequest._retry = true;
-        
+        isRefreshing = true;
+
         try {
-          const refreshToken = localStorage.getItem('refresh_token');
-          const response = await authApi.post('/token/refresh/', {
-            refresh: refreshToken
-          });
-          
-          const { access } = response.data;
-          localStorage.setItem('token', access);
-          
-          originalRequest.headers['Authorization'] = `Bearer ${access}`;
+          await refreshToken();
+          processQueue(null);
           return instance(originalRequest);
         } catch (refreshError) {
-          clearAuthTokens();
-          window.location.href = '/login';
+          processQueue(refreshError);
+          window.location.href = '/admin/login';
           return Promise.reject(refreshError);
+        } finally {
+          isRefreshing = false;
         }
       }
-      
-      return handleApiError(error);
+
+      return Promise.reject(error);
     }
   );
 };
 
-createResponseInterceptor(adminAxiosInstance);
-createResponseInterceptor(productApi);
-createResponseInterceptor(orderApi); 
+// Apply interceptors to all instances
+[adminAxiosInstance, productApi, cartApi, orderApi].forEach(instance => {
+  addRequestInterceptor(instance);
+  addResponseInterceptor(instance);
+});
 
-// Helper functions for common API operations
+// Common error handler
+const handleApiError = async (error) => {
+  const originalRequest = error.config;
+
+  if (error.response) {
+    switch (error.response.status) {
+      case 401:
+        if (!originalRequest._retry) {
+          originalRequest._retry = true;
+          const tokenRefreshed = await refreshToken();
+          if (tokenRefreshed) {
+            return adminAxiosInstance(originalRequest);  // Retry the original request
+          }
+        }
+        window.location.href = '/login';
+        break;
+      case 403:
+        console.error('Access denied');
+        break;
+      case 404:
+        console.error('Resource not found');
+        break;
+      case 500:
+        console.error('Server error');
+        break;
+      default:
+        console.error('API error');
+    }
+  } else {
+    console.error('Network error or request setup issue');
+  }
+  return Promise.reject(error);
+};
+
+// Apply interceptors to handle errors and token refresh
+const applyErrorInterceptor = (instance) => {
+  instance.interceptors.response.use(
+    (response) => response,
+    (error) => handleApiError(error)
+  );
+};
+
+applyErrorInterceptor(adminAxiosInstance);
+applyErrorInterceptor(productApi);
+applyErrorInterceptor(cartApi);
+applyErrorInterceptor(orderApi);
+
+// Helper functions for API calls
 const apiHelpers = {
- 
-  // Order operations
+  get: async (url, config = {}) => {
+    try {
+      const response = await adminAxiosInstance.get(url, config);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+  post: async (url, data = {}, config = {}) => {
+    try {
+      const response = await adminAxiosInstance.post(url, data, config);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+  put: async (url, data = {}, config = {}) => {
+    try {
+      const response = await adminAxiosInstance.put(url, data, config);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+  delete: async (url, config = {}) => {
+    try {
+      const response = await adminAxiosInstance.delete(url, config);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+  
+  
   orders: {
     createFromCart: async (data) => {
       try {
         const response = await orderApi.post('/create_from_cart/', data);
         return response.data;
-      }catch (error) {
-        const errorResponse = error.response?.data || {}
-        throw {
-          message: errorResponse.error || "Failed to create order",
-          type: error.response?.status === 404 ? "NOT_FOUND" : "ERROR",
-          details: errorResponse
-        }
+      } catch (error) {
+        throw error;
       }
     },
     getOrders: async () => {
@@ -181,34 +413,20 @@ const apiHelpers = {
         const response = await orderApi.get('/');
         return response.data;
       } catch (error) {
-        throw {
-          message: "Failed to fetch orders",
-          type: "ERROR",
-          details: error.response?.data
-        }
+        throw error;
       }
     },
-      // Get single order
-      getOrder: async (orderId) => {
-        try {
-          const response = await orderApi.get(`/${orderId}/`)
-          return response.data
-        } catch (error) {
-          throw {
-            message: "Failed to fetch order details",
-            type: error.response?.status === 404 ? "NOT_FOUND" : "ERROR",
-            details: error.response?.data
-          }
-        }
+    getOrder: async (orderId) => {
+      try {
+        const response = await orderApi.get(`/${orderId}/`);
+        return response.data;
+      } catch (error) {
+        throw error;
       }
+    }
   }
-
 };
 
-adminAxiosInstance.interceptors.request.use(addAuthToken, (error) => Promise.reject(error));
-productApi.interceptors.request.use(addAuthToken, (error) => Promise.reject(error));
-orderApi.interceptors.request.use(addAuthToken, (error)=>Promise.reject(error))
-
+export { authApi, productApi, cartApi, orderApi, apiHelpers };
 export default adminAxiosInstance;
-export { orderApi,productApi,apiHelpers };
 

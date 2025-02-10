@@ -1,4 +1,4 @@
-import React from 'react';  // Added React import
+import React from 'react'; 
 
 const ProductCard = ({ product }) => {
   if (!product) return null;
