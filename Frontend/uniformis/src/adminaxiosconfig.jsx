@@ -242,6 +242,7 @@ const adminAxiosInstance = axios.create(defaultConfig);
 const productApi = axios.create({ ...defaultConfig, baseURL: `${BASE_URL}/api/products` });
 const cartApi = axios.create({ ...defaultConfig, baseURL: `${BASE_URL}/api/orders/cart` });
 const orderApi = axios.create({ ...defaultConfig, baseURL: `${BASE_URL}/api/orders/admin/orders` });
+const offersApi = axios.create({ ...defaultConfig, baseURL: `${BASE_URL}/api/offers` });
 
 
 const refreshToken = async () => {
@@ -311,7 +312,7 @@ const addResponseInterceptor = (instance) => {
 };
 
 // Apply interceptors to all instances
-[adminAxiosInstance, productApi, cartApi, orderApi].forEach(instance => {
+[adminAxiosInstance, productApi, cartApi, orderApi,offersApi].forEach(instance => {
   addRequestInterceptor(instance);
   addResponseInterceptor(instance);
 });
@@ -362,6 +363,7 @@ applyErrorInterceptor(adminAxiosInstance);
 applyErrorInterceptor(productApi);
 applyErrorInterceptor(cartApi);
 applyErrorInterceptor(orderApi);
+applyErrorInterceptor(offersApi);
 
 // Helper functions for API calls
 const apiHelpers = {
@@ -427,6 +429,6 @@ const apiHelpers = {
   }
 };
 
-export { authApi, productApi, cartApi, orderApi, apiHelpers };
+export { authApi, productApi, cartApi, orderApi,offersApi ,apiHelpers };
 export default adminAxiosInstance;
 

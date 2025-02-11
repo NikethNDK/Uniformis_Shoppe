@@ -95,7 +95,9 @@ class OrderViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        print(self.request.user)
         return Order.objects.filter(user=self.request.user)
+
 
     @action(detail=False, methods=['post'])
     def create_from_cart(self, request):
@@ -115,7 +117,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             address_id=address_id,
             payment_method=payment_method,
             total_amount=cart.get_total_price(),
-            delivery_charges=0  # You can calculate this based on your logic
+            delivery_charges=0  
         )
 
         # Create order items

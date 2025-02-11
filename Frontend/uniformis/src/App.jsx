@@ -28,6 +28,10 @@ import CheckoutPage from "./components/user/order/CheckOut.jsx";
 import TrackOrder from "./components/user/order/TrackOrder.jsx";
 import AdminOrderManagement from "./components/admin/OrderManagement/OrderManagement.jsx";
 import HomePage from "./pages/user/Home.jsx";
+import ForgotPassword from "./components/user/fotgotAndResetpassword/ForgotPassword.jsx";
+import ResetPassword
+ from "./components/user/fotgotAndResetpassword/ResetPassword.jsx";
+import OffersPage from "./components/admin/OfferManagement/OfferManagement.jsx";
 function App() {
   return (
     <>
@@ -45,11 +49,15 @@ function App() {
           <Route path='category' element={<CategoryManagement/>}/>
           <Route path='color' element={<ColorManagement/>}/>
           <Route path='ordermanagement' element={<AdminOrderManagement/>}/>
+          <Route path="offermanagement" element={<OffersPage/>}/>
         </Route>
         <Route path="/admin/editUser" element={<AdminEditUser />} />
         
         <Route path="/admin/create-user" element={<CreateUserPage />} />
         <Route path="/admin/login" element={<AdminLogin />} />
+
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
         
         {/* User routes */}
         <Route path='/user' element={<UserLayout/>}>

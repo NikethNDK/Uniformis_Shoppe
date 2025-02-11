@@ -4,6 +4,7 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 from django.utils import timezone
 
 
+
 class MyAccountManager(BaseUserManager):
     def create_user(self, first_name, last_name, username, email, phone_number, password = None):
         if not email:
@@ -111,3 +112,4 @@ class Address (models.Model):
 
     def __str__(self):
         return f"{self.name}'s {self.address_type} address"
+    

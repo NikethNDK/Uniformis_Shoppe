@@ -2,7 +2,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 from django.db.models import Count, Avg
-from .models import Category, Product, Review, Offer, ProductImage, Size,Color
+from .models import Category, Product, Review, ProductImage, Size,Color
 from .serializers import (
     CategorySerializer, ProductSerializer, SizeSerializer,
     ReviewSerializer, ProductDetailSerializer,ColorSerializer
@@ -112,13 +112,6 @@ class ProductViewSet(viewsets.ModelViewSet):
     #     serializer = self.get_serializer(best_sellers, many=True)
     #     return Response(serializer.data)
 
-    # @action(detail=False, methods=['GET'])
-    # def offers(self, request):
-    #     products_with_offers = Product.objects.filter(
-    #         offer__isnull=False
-    #     ).order_by('-offer__discount_percentage')[:8]
-    #     serializer = self.get_serializer(products_with_offers, many=True)
-    #     return Response(serializer.data)
 
     @action(detail=True, methods=['POST'])
     def update_stock(self, request, pk=None):

@@ -39,7 +39,7 @@ function Sidebar() {
     {
       section: "Management",
       items: [
-        { path: "/offers", icon: FaTag, label: "Offers" },
+        { path: "/admin/offermanagement", icon: FaTag, label: "Offers" },
         { path: "/notification", icon: FaBell, label: "Notification" },
         { path: "/contact", icon: FaEnvelope, label: "Contact Us" },
         { path: "/reviews", icon: FaStar, label: "Reviews" }

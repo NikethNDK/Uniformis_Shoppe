@@ -208,7 +208,7 @@
 import { useEffect, useState } from "react"
 import { useDispatch, useSelector } from "react-redux"
 import { fetchProducts, updateProductStatus, deleteProduct } from "../../../redux/product/productSlice"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { toast, ToastContainer } from "react-toastify"
 import { FaSearch } from "react-icons/fa"
 import { PencilIcon, TrashIcon } from "@heroicons/react/24/outline"
@@ -475,5 +475,3 @@ const ProductList = () => {
 }
 
 export default ProductList
-
-

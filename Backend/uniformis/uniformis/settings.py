@@ -92,6 +92,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'django.contrib.sites',
     'rest_framework_simplejwt',
+    'django_rest_passwordreset',
     'corsheaders',
     'allauth',
     'allauth.account',
@@ -100,6 +101,7 @@ INSTALLED_APPS = [
     'user_app',
     'products',
     'orders',
+    'offers',
 ]
 GOOGLE_CLIENT_ID =config('google_id')
 # Google OAuth2 settings

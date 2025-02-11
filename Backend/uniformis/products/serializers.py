@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, Product, Review, Offer, ProductImage, Size,Color,ProductSizeColor
+from .models import Category, Product, Review, ProductImage, Size,Color,ProductSizeColor
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -19,10 +19,6 @@ class ReviewSerializer(serializers.ModelSerializer):
         fields = ['id', 'user_name', 'rating', 'comment', 'created_at']
         read_only_fields = ['user']
 
-class OfferSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Offer
-        fields = ['id', 'discount_percentage']
 
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
@@ -143,7 +139,6 @@ class ProductSerializer(serializers.ModelSerializer):
 class ProductDetailSerializer(ProductSerializer):
     size_color_options = ProductSizeColorSerializer(many=True, read_only=True)
     reviews = ReviewSerializer(many=True, read_only=True)
-    offer = OfferSerializer(read_only=True)
 
     class Meta(ProductSerializer.Meta):
-        fields = ProductSerializer.Meta.fields + ['reviews', 'offer','size_color_options']
+        fields = ProductSerializer.Meta.fields + ['reviews','size_color_options']
