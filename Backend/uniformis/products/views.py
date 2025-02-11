@@ -34,10 +34,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(is_active=True)
         
         return queryset
-    # def get_queryset(self):
-    #     if self.request.user.is_staff:
-    #         return Category.objects.all()
-    #     return Category.objects.filter(is_active=True)
+
 
     @action(detail=True, methods=['PATCH'])
     def toggle_active(self, request, pk=None):
@@ -69,55 +66,39 @@ class ProductPagination(PageNumberPagination):
     page_size_query_param = 'page_size'
     max_page_size = 100
 
-class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.all()
+class BaseProductViewSet(viewsets.ModelViewSet):
+    """Base ViewSet with common functionality"""
+    queryset = Product.objects.filter(is_deleted=False)
     serializer_class = ProductSerializer
     pagination_class = ProductPagination
-    permission_classes = [IsAuthenticated]
     filter_backends = [SearchFilter]
     search_fields = ['name']
-
-    # def get_queryset(self):
-    #     queryset = super().get_queryset()
-    #     if not self.request.user.is_staff:
-    #         queryset = queryset.filter(is_active=True)
-    #     return queryset
-
-    def list(self, request, *args, **kwargs):
-        queryset = self.filter_queryset(self.get_queryset())
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
 
     def get_serializer_class(self):
         if self.action == 'retrieve':
             return ProductDetailSerializer
         return ProductSerializer
 
-    def get_queryset(self):
-        if self.request.user.is_staff:
-            # return Product.objects.all()
-            return Product.objects.filter(is_deleted=False).order_by('-id')
-        return Product.objects.filter(is_active=True,is_deleted=False).order_by('-created_at')
-    
-    # @action(detail=False, methods=['GET'])
-    # def best_sellers(self, request):
-    #     best_sellers = Product.objects.annotate(
-    #         order_count=Count('orderitem')
-    #     ).order_by('-order_count')[:8]
-    #     serializer = self.get_serializer(best_sellers, many=True)
-    #     return Response(serializer.data)
+class AdminProductViewSet(BaseProductViewSet):
+    """ViewSet for admin-specific product operations"""
+    permission_classes = [IsAuthenticated, IsAdminUser]
 
+    def get_queryset(self):
+        return Product.objects.filter(is_deleted=False).order_by('-id')
 
     @action(detail=True, methods=['POST'])
     def update_stock(self, request, pk=None):
-        if not request.user.is_staff:
-            return Response(status=status.HTTP_403_FORBIDDEN)
-    
+        product = self.get_object()
+        new_stock = request.data.get('stock_quantity')
+        if new_stock is not None:
+            product.stock_quantity = new_stock
+            product.save()
+            return Response({'status': 'stock updated'})
+        return Response(
+            {'error': 'stock_quantity required'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
     @action(detail=True, methods=['PATCH'])
     def toggle_active(self, request, pk=None):
         product = self.get_object()
@@ -125,50 +106,42 @@ class ProductViewSet(viewsets.ModelViewSet):
         product.save()
         serializer = self.get_serializer(product)
         return Response(serializer.data)
-        
-        product = self.get_object()
-        new_stock = request.data.get('stock_quantity')
-        if new_stock is not None:
-            product.stock_quantity = new_stock
-            product.save()
-            return Response({'status': 'stock updated'})
-        return Response({'error': 'stock_quantity required'}, 
-                       status=status.HTTP_400_BAD_REQUEST)
-
-    def perform_destroy(self, instance):
-        instance.delete()
 
     @action(detail=True, methods=['POST'])
     def restore(self, request, pk=None):
-        """Restore a soft-deleted product"""
-        if not request.user.is_staff:
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        
         product = self.get_object()
+        product.is_deleted = False
         product.is_active = True
         product.save()
         return Response({'status': 'product restored'})
 
     @action(detail=True, methods=['DELETE'])
     def delete_image(self, request, pk=None):
-        if not request.user.is_staff:
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        
         image_id = request.data.get('image_id')
         if not image_id:
-            return Response({'error': 'image_id required'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'error': 'image_id required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         try:
             image = ProductImage.objects.get(id=image_id, product_id=pk)
             image.delete()
             return Response({'status': 'image deleted'})
         except ProductImage.DoesNotExist:
-            return Response({'error': 'Image not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {'error': 'Image not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer = self.get_serializer(
+            instance, 
+            data=request.data, 
+            partial=partial
+        )
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
 
@@ -177,7 +150,22 @@ class ProductViewSet(viewsets.ModelViewSet):
                 ProductImage.objects.create(product=instance, image=image)
 
         return Response(serializer.data)
-    
+
+    def perform_destroy(self, instance):
+        instance.is_deleted = True
+        instance.is_active = False
+        instance.save()
+
+class UserProductViewSet(BaseProductViewSet):
+    """ViewSet for customer-facing product operations"""
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Product.objects.filter(
+            is_active=True,
+            is_deleted=False
+        ).order_by('-created_at')
+
     @action(detail=True, methods=['GET'])
     def similar_products(self, request, pk=None):
         product = self.get_object()
@@ -188,6 +176,20 @@ class ProductViewSet(viewsets.ModelViewSet):
         ).exclude(id=product.id)[:5]
         serializer = ProductSerializer(similar_products, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['GET'])
+    def best_sellers(self, request):
+        best_sellers = Product.objects.filter(
+            is_active=True,
+            is_deleted=False
+        ).annotate(
+            order_count=Count('orderitem')
+        ).order_by('-order_count')[:8]
+        serializer = self.get_serializer(best_sellers, many=True)
+        return Response(serializer.data)
+
+
+
 
 class AddProductView(APIView):
     parser_classes = (MultiPartParser, FormParser)
@@ -321,63 +323,3 @@ def product_list(request):
     products = Product.objects.filter(is_deleted=False)
     serializer = ProductSerializer(products, many=True)
     return Response(serializer.data)
-# @api_view(['POST'])
-# def add_product(request):
-#     try:
-#         product_data = {
-#             'name': request.data.get('title'),
-#             'price': request.data.get('price'),
-#             'category_id': request.data.get('category'),
-#             'description': request.data.get('description'),
-#             'stock_quantity': request.data.get('stock'),
-#             'size_id': request.data.get('size'),  # Changed from sizes
-#             'color_ids': request.data.getlist('colors')  # Keep as list for multiple colors
-#         }
-        
-#         product_serializer = ProductSerializer(data=product_data)
-#         if product_serializer.is_valid():
-#             product = product_serializer.save()
-            
-#             # Handle images
-#             images = request.FILES.getlist('images')
-#             for image in images:
-#                 ProductImage.objects.create(product=product, image=image)
-            
-#             return Response(product_serializer.data, status=status.HTTP_201_CREATED)
-#         return Response(product_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-#     except Exception as e:
-#         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-# @api_view(['POST'])
-# def add_product(request):
-#     try:
-#         product_data = {
-#             'name': request.data.get('title'),
-#             'price': request.data.get('price'),
-#             'category_id': request.data.get('category'),
-#             'description': request.data.get('description'),
-#             'stock_quantity': request.data.get('stock'),
-#             'size_id': request.data.get('size'),
-#             'color_ids': request.data.getlist('colors')
-#         }
-        
-#         product_serializer = ProductSerializer(data=product_data)
-#         if product_serializer.is_valid():
-#             product = product_serializer.save()
-            
-#             # Handle images
-#             images = request.FILES.getlist('images')
-#             for image in images:
-#                 ProductImage.objects.create(product=product, image=image)
-                
-#             # Set colors
-#             if product_data['color_ids']:
-#                 product.colors.set(product_data['color_ids'])
-            
-#             return Response(product_serializer.data, status=status.HTTP_201_CREATED)
-#         return Response(product_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-#     except Exception as e:
-#         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-

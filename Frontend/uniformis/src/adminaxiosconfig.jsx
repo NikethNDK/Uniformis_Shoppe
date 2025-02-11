@@ -239,7 +239,7 @@ const defaultConfig = {
 // Axios instances
 const authApi = axios.create(defaultConfig);
 const adminAxiosInstance = axios.create(defaultConfig);
-const productApi = axios.create({ ...defaultConfig, baseURL: `${BASE_URL}/api/products` });
+const productApi = axios.create({ ...defaultConfig, baseURL: `${BASE_URL}/api/products/admin` });
 const cartApi = axios.create({ ...defaultConfig, baseURL: `${BASE_URL}/api/orders/cart` });
 const orderApi = axios.create({ ...defaultConfig, baseURL: `${BASE_URL}/api/orders/admin/orders` });
 const offersApi = axios.create({ ...defaultConfig, baseURL: `${BASE_URL}/api/offers` });
