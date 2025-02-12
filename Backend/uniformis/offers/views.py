@@ -10,7 +10,6 @@ from .serializers import (
 )
 
 class OfferViewSet(viewsets.ModelViewSet):
-    queryset = Offer.objects.all()
     serializer_class = OfferSerializer
     permission_classes = [IsAdminUser]
 
@@ -18,13 +17,26 @@ class OfferViewSet(viewsets.ModelViewSet):
         queryset = Offer.objects.all()
         category_id = self.request.query_params.get('category', None)
         offer_type = self.request.query_params.get('type', None)
+        is_active = self.request.query_params.get('is_active', None)
+        is_expired = self.request.query_params.get('is_expired', None)
 
         if category_id:
             queryset = queryset.filter(category_id=category_id)
         if offer_type:
             queryset = queryset.filter(offer_type=offer_type)
+        if is_active is not None:
+            queryset = queryset.filter(is_active=is_active.lower() == 'true')
+        if is_expired is not None:
+            if is_expired.lower() == 'true':
+                queryset = queryset.filter(valid_until__lt=timezone.now())
+            else:
+                queryset = queryset.filter(valid_until__gte=timezone.now())
 
         return queryset.order_by('-created_at')
+    
+    # def create(self, request, *args, **kwargs):
+    #     # Print incoming POST data
+    #     print("Incoming POST data:", request.data)
 
     @action(detail=True, methods=['patch'])
     def toggle_active(self, request, pk=None):
@@ -35,9 +47,31 @@ class OfferViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 class CouponViewSet(viewsets.ModelViewSet):
-    queryset = Coupon.objects.all()
     serializer_class = CouponSerializer
     permission_classes = [IsAdminUser]
+
+    def get_queryset(self):
+        queryset = Coupon.objects.all()
+        is_active = self.request.query_params.get('is_active', None)
+        is_expired = self.request.query_params.get('is_expired', None)
+
+        if is_active is not None:
+            queryset = queryset.filter(is_active=is_active.lower() == 'true')
+        if is_expired is not None:
+            if is_expired.lower() == 'true':
+                queryset = queryset.filter(valid_until__lt=timezone.now())
+            else:
+                queryset = queryset.filter(valid_until__gte=timezone.now())
+
+        return queryset.order_by('-created_at')
+
+    @action(detail=True, methods=['patch'])
+    def toggle_active(self, request, pk=None):
+        coupon = self.get_object()
+        coupon.is_active = not coupon.is_active
+        coupon.save()
+        serializer = self.get_serializer(coupon)
+        return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
     def apply(self, request, pk=None):
@@ -61,7 +95,7 @@ class CouponViewSet(viewsets.ModelViewSet):
         if total_amount < coupon.minimum_purchase:
             return Response(
                 {
-                    'error': f'Minimum purchase amount of ${coupon.minimum_purchase} required'
+                    'error': f'Minimum purchase amount of ₹{coupon.minimum_purchase} required'
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
@@ -75,13 +109,13 @@ class CouponViewSet(viewsets.ModelViewSet):
             )
 
         # Calculate discount
-        discount_amount = (total_amount * coupon.discount_percentage) / 100
+        discount_amount = (float(total_amount) * coupon.discount_percentage) / 100
 
         return Response({
             'discount_amount': discount_amount,
-            'final_amount': total_amount - discount_amount
+            'final_amount': float(total_amount) - discount_amount
         })
-
+    
 class ReferralOfferViewSet(viewsets.ModelViewSet):
     queryset = ReferralOffer.objects.all()
     serializer_class = ReferralOfferSerializer
@@ -89,12 +123,11 @@ class ReferralOfferViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def apply_referral(self, request):
-        referral_code = request.data.get('referral_code')
-        user = request.user
-
         try:
-            referral_offer = ReferralOffer.objects.get(is_active=True)
-            # Apply referral logic here
+            referral_offer = ReferralOffer.objects.get(
+                is_active=True,
+                valid_until__gt=timezone.now()
+            )
             return Response({
                 'referrer_discount': referral_offer.referrer_discount,
                 'referee_discount': referral_offer.referee_discount
@@ -104,4 +137,3 @@ class ReferralOfferViewSet(viewsets.ModelViewSet):
                 {'error': 'No active referral offer found'},
                 status=status.HTTP_404_NOT_FOUND
             )
-

@@ -31,7 +31,9 @@ import HomePage from "./pages/user/Home.jsx";
 import ForgotPassword from "./components/user/fotgotAndResetpassword/ForgotPassword.jsx";
 import ResetPassword
  from "./components/user/fotgotAndResetpassword/ResetPassword.jsx";
-import OffersPage from "./components/admin/OfferManagement/OfferManagement.jsx";
+// import OffersPage from "./components/admin/OfferManagement/OfferManagement.jsx";
+import CouponManagement from "./components/admin/CouponManagement/CouponManagement.jsx";
+import OfferManagement from "./components/admin/OfferManagement/OfferManagement.jsx";
 function App() {
   return (
     <>
@@ -49,7 +51,8 @@ function App() {
           <Route path='category' element={<CategoryManagement/>}/>
           <Route path='color' element={<ColorManagement/>}/>
           <Route path='ordermanagement' element={<AdminOrderManagement/>}/>
-          <Route path="offermanagement" element={<OffersPage/>}/>
+          <Route path="offermanagement" element={<OfferManagement/>}/>
+          <Route path='couponmangement' element={<CouponManagement/>}/>
         </Route>
         <Route path="/admin/editUser" element={<AdminEditUser />} />
         

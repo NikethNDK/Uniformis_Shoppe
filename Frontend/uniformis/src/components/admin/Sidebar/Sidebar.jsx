@@ -48,7 +48,7 @@ function Sidebar() {
     {
       section: "Configuration",
       items: [
-        { path: "/coupon", icon: FaTicketAlt, label: "Coupon" },
+        { path: "/admin/couponmangement", icon: FaTicketAlt, label: "Coupon" },
         { path: "/banner", icon: FaImage, label: "Banner management" },
         
       ]

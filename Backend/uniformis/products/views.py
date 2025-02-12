@@ -84,7 +84,12 @@ class AdminProductViewSet(BaseProductViewSet):
     permission_classes = [IsAuthenticated, IsAdminUser]
 
     def get_queryset(self):
-        return Product.objects.filter(is_deleted=False).order_by('-id')
+        # return Product.objects.filter(is_deleted=False).order_by('-id')
+        queryset = Product.objects.filter(is_deleted=False).order_by('-id')
+        category = self.request.query_params.get('category', None)
+        if category:
+            queryset = queryset.filter(category_id=category)
+        return queryset
 
     @action(detail=True, methods=['POST'])
     def update_stock(self, request, pk=None):

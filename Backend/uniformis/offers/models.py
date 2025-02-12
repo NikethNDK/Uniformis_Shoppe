@@ -2,6 +2,7 @@ from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from products.models import Product, Category
 from user_app.models import User
+from django.utils import timezone
 
 class Offer(models.Model):
     OFFER_TYPES = (
@@ -25,6 +26,17 @@ class Offer(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.get_offer_type_display()}"
+    
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if self.valid_from and self.valid_until and self.valid_from >= self.valid_until:
+            raise ValidationError('Valid from date must be before valid until date')
+        if self.valid_until and self.valid_until < timezone.now():
+            raise ValidationError('Valid until date cannot be in the past')
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
 
     class Meta:
         db_table = 'offer'
@@ -45,6 +57,17 @@ class Coupon(models.Model):
 
     def __str__(self):
         return self.code
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if self.valid_from and self.valid_until and self.valid_from >= self.valid_until:
+            raise ValidationError('Valid from date must be before valid until date')
+        if self.valid_until and self.valid_until < timezone.now():
+            raise ValidationError('Valid until date cannot be in the past')
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
 
     class Meta:
         db_table = 'coupon'
