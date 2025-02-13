@@ -1,136 +1,141 @@
-
 import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
+import { useQuery } from "@tanstack/react-query"
+import { format } from "date-fns"
+import { CalendarIcon } from "lucide-react"
 import { Button } from "../../components/ui/button"
+import { Calendar } from "../../components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
-import { DatePicker } from "../../components/ui/date-picker"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
+import adminAxiosInstance, { orderApi } from "../../../adminaxiosconfig"
 
 const SalesReport = () => {
   const [reportType, setReportType] = useState("daily")
-  const [startDate, setStartDate] = useState(new Date())
-  const [endDate, setEndDate] = useState(new Date())
-  const [reportData, setReportData] = useState(null)
+  const [startDate, setStartDate] = useState()
+  const [endDate, setEndDate] = useState()
 
-  const generateReport = async () => {
-    // TODO: Implement API call to generate report
-    // For now, we'll use mock data
-    setReportData({
-      totalSales: 10000,
-      totalOrders: 100,
-      totalDiscount: 1000,
-      products: [
-        { name: "Product 1", category: "Category 1", sales: 5000, orders: 50 },
-        { name: "Product 2", category: "Category 2", sales: 3000, orders: 30 },
-        { name: "Product 3", category: "Category 1", sales: 2000, orders: 20 },
-      ],
-    })
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['salesReport', { reportType, startDate, endDate }],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        type: reportType,
+        ...(startDate && { start_date: format(startDate, "yyyy-MM-dd") }),
+        ...(endDate && { end_date: format(endDate, "yyyy-MM-dd") }),
+      })
+      const response = await adminAxiosInstance.get(`/orders/sales-report/generate?${params}`)
+      return response.data
+    },
+    enabled: reportType === 'custom' ? !!(startDate && endDate) : true
+  })
+
+  const handleDownload = (format) => {
+    // Implement download logic here
+    console.log(`Downloading ${format} report`)
   }
 
-  const downloadReport = (format) => {
-    // TODO: Implement report download
-    console.log(`Downloading report in ${format} format`)
-  }
+  if (isLoading) return <div className="ml-64 p-4">Loading...</div>
+  if (error) return <div className="ml-64 p-4">Error: {error.message}</div>
 
   return (
-    <Card className="max-w-4xl mx-64">
-      <CardHeader>
-        <CardTitle>Sales Report</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <div className="flex space-x-4">
-            <Select value={reportType} onValueChange={setReportType}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select report type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="daily">Daily</SelectItem>
-                <SelectItem value="weekly">Weekly</SelectItem>
-                <SelectItem value="monthly">Monthly</SelectItem>
-                <SelectItem value="yearly">Yearly</SelectItem>
-                <SelectItem value="custom">Custom Date Range</SelectItem>
-              </SelectContent>
-            </Select>
-            {reportType === "custom" && (
-              <>
-                <DatePicker
-                  selected={startDate}
-                  onChange={setStartDate}
-                  selectsStart
-                  startDate={startDate}
-                  endDate={endDate}
-                />
-                <DatePicker
-                  selected={endDate}
-                  onChange={setEndDate}
-                  selectsEnd
-                  startDate={startDate}
-                  endDate={endDate}
-                />
-              </>
-            )}
-            <Button onClick={generateReport}>Generate Report</Button>
-          </div>
-          {reportData && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Total Sales</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-2xl font-bold">₹{reportData.totalSales.toLocaleString()}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Total Orders</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-2xl font-bold">{reportData.totalOrders}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Total Discount</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-2xl font-bold">₹{reportData.totalDiscount.toLocaleString()}</p>
-                  </CardContent>
-                </Card>
-              </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Product</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Sales</TableHead>
-                    <TableHead>Orders</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {reportData.products.map((product, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{product.name}</TableCell>
-                      <TableCell>{product.category}</TableCell>
-                      <TableCell>₹{product.sales.toLocaleString()}</TableCell>
-                      <TableCell>{product.orders}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              <div className="flex justify-end space-x-2">
-                <Button onClick={() => downloadReport("excel")}>Download Excel</Button>
-                <Button onClick={() => downloadReport("pdf")}>Download PDF</Button>
-              </div>
+    <div className="ml-64 p-4">
+      <h1 className="text-2xl font-bold mb-4">Sales Report</h1>
+
+      <div className="flex space-x-4 mb-4">
+        <Select value={reportType} onValueChange={setReportType}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Select report type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="daily">Daily</SelectItem>
+            <SelectItem value="weekly">Weekly</SelectItem>
+            <SelectItem value="monthly">Monthly</SelectItem>
+            <SelectItem value="yearly">Yearly</SelectItem>
+            <SelectItem value="custom">Custom</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {reportType === "custom" && (
+          <>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={`w-[280px] justify-start text-left font-normal ${!startDate && "text-muted-foreground"}`}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {startDate ? format(startDate, "PPP") : <span>Pick a start date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus />
+              </PopoverContent>
+            </Popover>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={`w-[280px] justify-start text-left font-normal ${!endDate && "text-muted-foreground"}`}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {endDate ? format(endDate, "PPP") : <span>Pick an end date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar mode="single" selected={endDate} onSelect={setEndDate} initialFocus />
+              </PopoverContent>
+            </Popover>
+          </>
+        )}
+      </div>
+
+      {data && (
+        <>
+          <div className="grid grid-cols-3 gap-4 mb-4">
+            <div className="bg-white p-4 rounded-lg shadow">
+              <h2 className="text-lg font-semibold mb-2">Total Sales</h2>
+              <p className="text-2xl font-bold">₹{data.total_sales.toFixed(2)}</p>
             </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+            <div className="bg-white p-4 rounded-lg shadow">
+              <h2 className="text-lg font-semibold mb-2">Total Orders</h2>
+              <p className="text-2xl font-bold">{data.total_orders}</p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow">
+              <h2 className="text-lg font-semibold mb-2">Total Discount</h2>
+              <p className="text-2xl font-bold">₹{data.total_discount.toFixed(2)}</p>
+            </div>
+          </div>
+
+          <Table>
+            <TableCaption>A list of product sales.</TableCaption>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Product Name</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Total Sales</TableHead>
+                <TableHead>Total Orders</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.products.map((product, index) => (
+                <TableRow key={index}>
+                  <TableCell>{product.product_name}</TableCell>
+                  <TableCell>{product.variant__product__category__name}</TableCell>
+                  <TableCell>₹{product.total_sales.toFixed(2)}</TableCell>
+                  <TableCell>{product.total_orders}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+
+          <div className="mt-4 space-x-4">
+            <Button onClick={() => handleDownload("pdf")}>Download PDF</Button>
+            <Button onClick={() => handleDownload("excel")}>Download Excel</Button>
+          </div>
+        </>
+      )}
+    </div>
   )
 }
 
 export default SalesReport
-

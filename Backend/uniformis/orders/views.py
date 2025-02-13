@@ -3,11 +3,11 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated,IsAdminUser
 from django.db.models import Sum, Count
-from django.db.models import Sum, Count
 from django.utils import timezone
 from datetime import timedelta
 from django.shortcuts import get_object_or_404
 from .models import Cart, CartItem, Order, OrderItem
+from offers.models import Coupon,CouponUsage
 from user_app.models import Address
 from .serializers import CartSerializer, OrderSerializer,AddressSerializer,OrderItemSerializer
 from products.models import ProductSizeColor
@@ -141,7 +141,30 @@ class OrderViewSet(viewsets.ModelViewSet):
 
             address_id = request.data.get('address_id')
             payment_method = request.data.get('payment_method')
+            coupon_code = request.data.get('coupon_code')
 
+            # Calculate totals
+            subtotal = sum(item.get_total_price() for item in cart.items.all())
+            total_discount = 0
+            coupon_discount = 0
+            # Apply coupon if provided
+            coupon = None
+            if coupon_code:
+                try:
+                    coupon = Coupon.objects.get(
+                        code=coupon_code,
+                        is_active=True,
+                        valid_from__lte=timezone.now(),
+                        valid_until__gte=timezone.now()
+                    )
+                    if subtotal >= coupon.minimum_purchase:
+                        coupon_discount = (subtotal * coupon.discount_percentage) / 100
+                except Coupon.DoesNotExist:
+                    return Response(
+                        {'error': 'Invalid coupon code'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )  
+                
             # Verify Razorpay payment if card payment
             if payment_method == 'card':
                 payment_data = {
@@ -159,17 +182,25 @@ class OrderViewSet(viewsets.ModelViewSet):
                     )
 
             # Create order
-            order = Order.objects.create(
-                user=self.request.user,
-                address_id=address_id,
-                payment_method=payment_method,
-                total_amount=cart.get_total_price(),
-                delivery_charges=0,
-                payment_status='completed' if payment_method == 'card' else 'pending'
-            )
+            with transaction.atomic():
+                order = Order.objects.create(
+                    user=self.request.user,
+                    address_id=address_id,
+                    payment_method=payment_method,
+                    subtotal=subtotal,
+                    discount_amount=total_discount,
+                    coupon_discount=coupon_discount,
+                    coupon=coupon,
+                    delivery_charges=0,
+                    payment_status='completed' if payment_method == 'card' else 'pending'
+                )
 
             # Create order items and update stock
             for cart_item in cart.items.all():
+                # Calculate item discount
+                original_price = cart_item.variant.price * cart_item.quantity
+                discount_amount = self.calculate_item_discount(cart_item)
+
                 OrderItem.objects.create(
                     order=order,
                     variant=cart_item.variant,
@@ -177,9 +208,18 @@ class OrderViewSet(viewsets.ModelViewSet):
                     size=cart_item.variant.size.name,
                     color=cart_item.variant.color.name,
                     quantity=cart_item.quantity,
-                    price=cart_item.variant.price,
+                    original_price=original_price,
+                    discount_amount=discount_amount,
+                    final_price=original_price - discount_amount
                 )
-                
+                total_discount += discount_amount
+                # Update order with final discount amount
+                order.discount_amount = total_discount
+                order.save()
+
+                # Create coupon usage record if applicable
+                if coupon:
+                    CouponUsage.objects.create(coupon=coupon, user=self.request.user)                
                 # Update stock in a transaction
                 with transaction.atomic():
                     variant = cart_item.variant
@@ -202,6 +242,45 @@ class OrderViewSet(viewsets.ModelViewSet):
                 {'error': "Failed to create order"}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+        
+
+    def calculate_item_discount(self, cart_item):
+        now = timezone.now()
+        product = cart_item.variant.product
+        
+        # Get product offer
+        product_offer = product.offers.filter(
+            offer_type='PRODUCT',
+            is_active=True,
+            valid_from__lte=now,
+            valid_until__gte=now
+        ).order_by('-discount_percentage').first()
+
+        # Get category offer
+        category_offer = product.category.offers.filter(
+            offer_type='CATEGORY',
+            is_active=True,
+            valid_from__lte=now,
+            valid_until__gte=now
+        ).order_by('-discount_percentage').first()
+
+        # Get highest discount percentage
+        discount_percentage = 0
+        if product_offer and category_offer:
+            discount_percentage = max(
+                product_offer.discount_percentage,
+                category_offer.discount_percentage
+            )
+        elif product_offer:
+            discount_percentage = product_offer.discount_percentage
+        elif category_offer:
+            discount_percentage = category_offer.discount_percentage
+
+        # Calculate discount amount
+        original_price = cart_item.variant.price * cart_item.quantity
+        return (original_price * discount_percentage) / 100
+
+
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
         order = self.get_object()
@@ -227,7 +306,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         queryset = self.get_queryset()
         # Update status for all orders
         for order in queryset:
-            order.update_status()
+            order.update_status('processing') 
         
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
@@ -316,15 +395,26 @@ def razorpay_webhook(self, request):
 
 
 #SalesReport
+# Add this to your views.py
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.permissions import IsAdminUser
+from django.db.models import Sum, Count
+from django.utils import timezone
+from datetime import timedelta
+from .models import Order, OrderItem
+
 class SalesReportViewSet(viewsets.ViewSet):
     permission_classes = [IsAdminUser]
-
+    
     @action(detail=False, methods=['get'])
     def generate(self, request):
         report_type = request.query_params.get('type', 'daily')
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
 
+        # Set date range based on report type
         if report_type == 'daily':
             start_date = timezone.now().date()
             end_date = start_date + timedelta(days=1)
@@ -339,20 +429,34 @@ class SalesReportViewSet(viewsets.ViewSet):
             end_date = start_date.replace(year=start_date.year + 1)
         elif report_type == 'custom':
             if not start_date or not end_date:
-                return Response({"error": "Start date and end date are required for custom reports"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"error": "Start date and end date are required for custom reports"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             start_date = timezone.datetime.strptime(start_date, "%Y-%m-%d").date()
             end_date = timezone.datetime.strptime(end_date, "%Y-%m-%d").date() + timedelta(days=1)
 
-        orders = Order.objects.filter(created_at__gte=start_date, created_at__lt=end_date)
+        # Query orders within date range
+        orders = Order.objects.filter(
+            created_at__gte=start_date,
+            created_at__lt=end_date
+        )
         
-        total_sales = orders.aggregate(total=Sum('total_amount'))['total'] or 0
+        # Calculate totals
+        total_sales = orders.aggregate(total=Sum('final_total'))['total'] or 0
         total_orders = orders.count()
-        total_discount = orders.aggregate(total=Sum('items__price') - Sum('total_amount'))['total'] or 0
+        total_discount = orders.aggregate(
+            total=Sum('discount_amount') + Sum('coupon_discount')
+        )['total'] or 0
 
-        product_sales = OrderItem.objects.filter(order__in=orders).values(
-            'product_name', 'variant__product__category__name'
+        # Get product-wise sales data
+        product_sales = OrderItem.objects.filter(
+            order__in=orders
+        ).values(
+            'product_name',
+            'variant__product__category__name'
         ).annotate(
-            total_sales=Sum('total_price'),
+            total_sales=Sum('final_price'),
             total_orders=Count('id')
         ).order_by('-total_sales')
 

@@ -23,9 +23,9 @@ const CheckoutPage = () => {
   const [addresses, setAddresses] = useState([])
   const [loading, setLoading] = useState(false)
 
-  const { items, totalAmount } = useSelector((state) => state.cart)
+  const { items, totalAmount,finalTotal } = useSelector((state) => state.cart)
   const deliveryCharges = 0 // You can calculate this based on your logic
-  
+  // console.log('first',finalTotal)
   const fetchAddresses = async () => {
     try {
       const response = await axiosInstance.get("/addresses/")
@@ -304,6 +304,10 @@ const CheckoutPage = () => {
                   <span>₹{totalAmount}</span>
                 </div>
                 <div className="flex justify-between">
+                  <span>You Saved</span>
+                  <span className="text-green-600">{(totalAmount-finalTotal).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
                   <span>Delivery Charges</span>
                   <span className="text-green-600">{deliveryCharges === 0 ? "FREE" : `₹${deliveryCharges}`}</span>
                 </div>
@@ -320,7 +324,7 @@ const CheckoutPage = () => {
                 <Separator />
                 <div className="flex justify-between font-bold">
                   <span>Total Amount</span>
-                  <span>₹{totalAmount + deliveryCharges}</span>
+                  <span>₹{finalTotal + deliveryCharges}</span>
                 </div>
               </div>
             </CardContent>

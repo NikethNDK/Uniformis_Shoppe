@@ -3,13 +3,15 @@ import { useSelector, useDispatch } from 'react-redux';
 import { fetchCart, removeFromCart, updateCartItemQuantity } from '../../../redux/cart/cartSlice';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { CloudFog } from 'lucide-react';
 
 const CartPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { items, loading, totalAmount } = useSelector((state) => state.cart);
   const [localQuantities, setLocalQuantities] = useState({});
-  
+  const finalTotal = useSelector(state => state.cart.finalTotal);
+  console.log("Final",finalTotal)
   useEffect(() => {
     const loadCart = async () => {
       try {
@@ -149,7 +151,7 @@ const CartPage = () => {
                 <p className="text-gray-600">
                   {variant.size?.name}, {variant.color?.name}
                 </p>
-                <p className="text-gray-800">₹{variant.price || 0}</p>
+                <p className="text-gray-800">₹{item.final_price || 0}</p>
                 <div className="flex items-center mt-2">
                   <button
                     onClick={() => handleQuantityChange(item.id, currentQuantity - 1, stockQuantity)}
@@ -185,7 +187,7 @@ const CartPage = () => {
       </div>
       <div className="mt-6">
         <div className="text-xl font-bold">
-          Total: ₹{totalAmount || 0}
+          Total: ₹{finalTotal || 0}
         </div>
         <Link to='/user/checkout'>
         <button

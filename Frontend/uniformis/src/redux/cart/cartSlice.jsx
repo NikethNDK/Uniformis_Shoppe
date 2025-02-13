@@ -8,6 +8,7 @@ const initialState = {
   error: null,
   totalAmount: 0,
   itemCount: 0,
+  finalTotal:0
 }
 
 const BASE_URL ='http://localhost:8000'; 
@@ -38,7 +39,8 @@ export const fetchCart = createAsyncThunk(
       return {
         items: formattedItems,
         total_price: response[0].total_price || 0,
-        total_items: response[0].total_items || 0
+        total_items: response[0].total_items || 0,
+        final_total: response[0].final_total || 0,
       };
     } catch (error) {
       if (error.type !== 'NOT_FOUND') {
@@ -104,7 +106,8 @@ export const addToCart = createAsyncThunk(
           : `${BASE_URL}${item.product_image}`,
         variant: {
           ...item.variant,
-          price: parseFloat(item.variant.price)
+          price: parseFloat(item.variant.price),
+          
         }
       }));
 
@@ -147,7 +150,8 @@ export const removeFromCart = createAsyncThunk(
 
       return {
         ...response,
-        items: formattedItems
+        items: formattedItems,
+        final_total: response[0].final_total || 0 
       };
 
     } catch (error) {
@@ -237,19 +241,19 @@ const cartSlice = createSlice({
   name: "cart",
   initialState,
   reducers: {
-    calculateTotals: (state) => {
-      state.totalAmount = state.items.reduce(
-        (total, item) => total + item.variant.price * item.quantity,
-        0
-      )
-      state.itemCount = state.items.reduce(
-        (count, item) => count + item.quantity,
-        0
-      )
-    },
-    clearError: (state) => {
-      state.error = null
-    }
+    // calculateTotals: (state) => {
+    //   state.totalAmount = state.items.reduce(
+    //     (total, item) => total + item.final_price * item.quantity,
+    //     0
+    //   )
+    //   state.itemCount = state.items.reduce(
+    //     (count, item) => count + item.quantity,
+    //     0
+    //   )
+    // },
+    // clearError: (state) => {
+    //   state.error = null
+    // }
   },
   extraReducers: (builder) => {
     builder
@@ -262,6 +266,7 @@ const cartSlice = createSlice({
         state.loading = false
         state.items = action.payload.items || []
         state.totalAmount = action.payload.total_price || 0
+        state.finalTotal=action.payload.final_total || 0
         state.itemCount = action.payload.total_items || 0
         state.error = null;
       })
@@ -279,6 +284,7 @@ const cartSlice = createSlice({
         state.loading = false
         state.items = action.payload.items || []
         state.totalAmount = action.payload.total_price || 0
+        state.finalTotal=action.payload.final_total || 0
         state.itemCount = action.payload.total_items || 0
       })
       .addCase(addToCart.rejected, (state, action) => {

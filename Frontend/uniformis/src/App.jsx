@@ -35,9 +35,14 @@ import ResetPassword
 import CouponManagement from "./components/admin/CouponManagement/CouponManagement.jsx";
 import OfferManagement from "./components/admin/OfferManagement/OfferManagement.jsx";
 import SalesReport from "./components/admin/SalesReport/SalesReport.jsx";
+import CategoryPage from "./components/user/category/CategoryPage.jsx";
+
+import { QueryClientProvider } from '@tanstack/react-query'
+import { queryClient } from './components/lib/queryClient.js'
 function App() {
   return (
     <>
+     <QueryClientProvider client={queryClient}>
     <ToastContainer />
     <BrowserRouter>
       <Routes>
@@ -74,7 +79,10 @@ function App() {
           <Route path='checkout' element={<CheckoutPage/>}/>
           <Route path='trackorder' element={<TrackOrder/>}/>
           <Route path="home" element={<HomePage />} />
+          <Route path="category/:id" element={<CategoryPage />} />
         </Route>
+
+        <Route path="/category/:id" element={<CategoryPage />} />
 
         <Route path="/user-profile" element={<UserProfile />} />
         {/* <Route path="/home" element={<Home />} /> */}
@@ -86,6 +94,7 @@ function App() {
         <Route path="/defaultadmin" element={<AdminRedirect />} />
       </Routes>
     </BrowserRouter>
+    </QueryClientProvider>
     </>
   );
 }

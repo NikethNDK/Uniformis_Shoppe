@@ -195,6 +195,7 @@ const apiHelpers = {
     getCart: async () => {
       try {
         const response = await cartApi.get('/');
+        console.log("get cart",response.data)
         return response.data;
       } catch (error) {
         throw handleApiError(error);
