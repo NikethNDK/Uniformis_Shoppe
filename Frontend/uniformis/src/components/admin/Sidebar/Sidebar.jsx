@@ -48,6 +48,7 @@ function Sidebar() {
     {
       section: "Configuration",
       items: [
+        { path: "/admin/salesreport", icon: FaChartBar, label: "Sales Report" },
         { path: "/admin/couponmangement", icon: FaTicketAlt, label: "Coupon" },
         { path: "/banner", icon: FaImage, label: "Banner management" },
         

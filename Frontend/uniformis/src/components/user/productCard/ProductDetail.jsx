@@ -84,6 +84,13 @@ const ProductDetail = () => {
     setQuantity(1)
   }
 
+  const calculateDiscountedPrice = (variant) => {
+    if (!variant) return null;
+    const discount = product.discount_percentage || 0;
+    const discountedPrice = variant.price * (1 - discount / 100);
+    return discountedPrice;
+  };
+
   const handleVariantSelect = (variant) => {
     setSelectedVariant(variant)
     setQuantity(1)
@@ -227,9 +234,26 @@ const ProductDetail = () => {
               </svg>
             ))}
           </div>
-          {selectedVariant && (
+          {/* {selectedVariant && (
             <div className="text-2xl font-bold text-green-600 mb-4">₹{selectedVariant.price}</div>
+          )} */}
+           {selectedVariant && (
+        <div className="flex items-baseline gap-2 mb-4">
+          <div className="text-2xl font-bold text-green-600">
+            ₹{calculateDiscountedPrice(selectedVariant).toLocaleString()}
+          </div>
+          {product.discount_percentage > 0 && (
+            <>
+              <div className="text-lg text-gray-500 line-through">
+                ₹{selectedVariant.price.toLocaleString()}
+              </div>
+              <div className="text-sm text-red-500">
+                ({product.discount_percentage}% off)
+              </div>
+            </>
           )}
+        </div>
+      )}
   
 
           <div className="mb-4">
@@ -366,7 +390,25 @@ const ProductDetail = () => {
             {similar.name}
           </h3>
           <div className="flex items-center justify-between">
-            <span className="text-green-600 font-bold">₹ ₹{Math.min(...similar.variants.map((v) => v.price))}</span>
+            {/* <span className="text-green-600 font-bold">₹ ₹{Math.min(...similar.variants.map((v) => v.price))}</span> */}
+            <div className="flex flex-col">
+                    <span className="text-green-600 font-bold">
+                      ₹{(Math.min(...similar.variants.map(v => v.price)) * (1 - (similar.discount_percentage || 0) / 100)).toLocaleString()}
+                    </span>
+                    {similar.discount_percentage > 0 && (
+                      <div className="flex gap-2 items-center">
+                        <span className="text-sm text-gray-500 line-through">
+                          ₹{Math.min(...similar.variants.map(v => v.price)).toLocaleString()}
+                        </span>
+                        <span className="text-xs text-red-500">
+                          ({similar.discount_percentage}% off)
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+
+
             <div className="flex items-center">
               {[...Array(5)].map((_, index) => (
                 <svg

@@ -1,4 +1,5 @@
 from rest_framework import status,viewsets
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
@@ -31,10 +32,13 @@ import logging
 from rest_framework_simplejwt.views import TokenRefreshView as SimpleJWTTokenRefreshView
 from rest_framework_simplejwt.exceptions import TokenError
 
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
+
+
 
 class SignupView(APIView):
     def post(self, request):
@@ -208,7 +212,7 @@ class TokenRefreshView(SimpleJWTTokenRefreshView):
         data = {'refresh': refresh_token}
 
         try:
-            response = super().post(request._request, data=data, *args, **kwargs)
+            response = super().post(request, data=data, *args, **kwargs)
             
             # Set the new access token in cookies
             response.set_cookie(

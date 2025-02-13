@@ -16,8 +16,8 @@ class Offer(models.Model):
     discount_percentage = models.IntegerField(
         validators=[MinValueValidator(0), MaxValueValidator(100)]
     )
-    products = models.ManyToManyField(Product, blank=True)
-    category = models.ForeignKey(Category, on_delete=models.CASCADE, null=True, blank=True)
+    products = models.ManyToManyField(Product, blank=True,related_name='offers')
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, null=True, blank=True, related_name='offers')
     is_active = models.BooleanField(default=True)
     valid_from = models.DateTimeField()
     valid_until = models.DateTimeField()

@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from .models import Category, Product, Review, ProductImage, Size,Color,ProductSizeColor
+from offers.models import Offer
+from django.utils import timezone
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -46,6 +48,7 @@ class ProductSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
     variants = ProductSizeColorSerializer(many=True, read_only=True)
     category_id = serializers.IntegerField(write_only=True)
+    discount_percentage = serializers.SerializerMethodField()
     
     # For writing variants
     variants_data = serializers.ListField(
@@ -73,8 +76,32 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'category', 'category_id', 'name', 'description',
             'images', 'is_active', 'is_deleted',
-            'variants', 'variants_data','created_at'
+            'variants', 'variants_data','created_at','discount_percentage'
         ]
+    
+    def get_discount_percentage(self, obj):
+        now = timezone.now()
+        product_offer = obj.offers.filter(
+            offer_type='PRODUCT',
+            is_active=True,
+            valid_from__lte=now,
+            valid_until__gte=now
+        ).order_by('-discount_percentage').first()
+
+        category_offer = obj.category.offers.filter(
+            offer_type='CATEGORY',
+            is_active=True,
+            valid_from__lte=now,
+            valid_until__gte=now
+        ).order_by('-discount_percentage').first()
+
+        if product_offer and category_offer:
+            return max(product_offer.discount_percentage, category_offer.discount_percentage)
+        elif product_offer:
+            return product_offer.discount_percentage
+        elif category_offer:
+            return category_offer.discount_percentage
+        return 0
 
     def create(self, validated_data):
         try:

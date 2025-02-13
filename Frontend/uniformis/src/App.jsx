@@ -34,6 +34,7 @@ import ResetPassword
 // import OffersPage from "./components/admin/OfferManagement/OfferManagement.jsx";
 import CouponManagement from "./components/admin/CouponManagement/CouponManagement.jsx";
 import OfferManagement from "./components/admin/OfferManagement/OfferManagement.jsx";
+import SalesReport from "./components/admin/SalesReport/SalesReport.jsx";
 function App() {
   return (
     <>
@@ -53,6 +54,7 @@ function App() {
           <Route path='ordermanagement' element={<AdminOrderManagement/>}/>
           <Route path="offermanagement" element={<OfferManagement/>}/>
           <Route path='couponmangement' element={<CouponManagement/>}/>
+          <Route path='salesreport' element={<SalesReport/>}/>
         </Route>
         <Route path="/admin/editUser" element={<AdminEditUser />} />
         

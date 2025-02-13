@@ -102,6 +102,7 @@ INSTALLED_APPS = [
     'products',
     'orders',
     'offers',
+   
 ]
 GOOGLE_CLIENT_ID =config('google_id')
 # Google OAuth2 settings
@@ -141,6 +142,7 @@ MIDDLEWARE = [
     'allauth.account.middleware.AccountMiddleware',
     'csp.middleware.CSPMiddleware',
     'user_app.middleware.AccessTokenMiddleware',
+   
 
 ]
 
@@ -269,6 +271,10 @@ LOGIN_REDIRECT_URL = 'api/'
 LOGOUT_REDIRECT_URL = 'api/'
 # GOOGLE_OAUTH2_CLIENT_ID ="447562974245-n3dkhp35abet7aqdvfqv8flgkd39nai0.apps.googleusercontent.com"
 # GOOGLE_OAUTH2_CLIENT_SECRET = "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"
+
+RAZORPAY_KEY_ID = config('RAZORPAY_KEY_ID')
+
+RAZORPAY_KEY_SECRET = config('RAZORPAY_KEY_SECRET')
 
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',

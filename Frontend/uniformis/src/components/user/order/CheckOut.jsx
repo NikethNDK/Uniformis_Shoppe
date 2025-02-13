@@ -12,6 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/components/ui/radio-gro
 import { Label } from "@/components/components/ui/label"
 import { Separator } from "@/components/components/ui/separator"
 import { createOrder } from "../../../redux/order/orderSlice"
+import Razorpay from 'react-razorpay';
 
 const CheckoutPage = () => {
   const navigate = useNavigate()
@@ -43,29 +44,173 @@ const CheckoutPage = () => {
     toast.info("Coupon functionality coming soon!")
   }
 
-  const handlePlaceOrder = async () => {
-    if (!selectedAddress) {
-      toast.error("Please select a delivery address")
-      return
-    }
+  // const handlePlaceOrder = async () => {
+  //   if (!selectedAddress) {
+  //     toast.error("Please select a delivery address")
+  //     return
+  //   }
 
-    try {
-      setLoading(true)
-      await dispatch(
-        createOrder({
+  //   try {
+  //     setLoading(true);
+      
+  //     if (paymentMethod === 'card') {
+  //       // Create Razorpay order
+  //       const razorpayOrderRes = await axiosInstance.post('/orders/create_razorpay_order/');
+  //       const orderData = razorpayOrderRes.data;
+  
+  //       const options = {
+  //         name: "Your Store Name",
+  //         amount: orderData.amount,
+  //         currency: orderData.currency,
+  //         order_id: orderData.id,
+  //         prefill: {
+  //           name: "Customer Name",
+  //           email: "customer@example.com",
+  //           contact: "9999999999"
+  //         },
+  //         handler: async (response) => {
+  //           try {
+  //             await dispatch(
+  //               createOrder({
+  //                 address_id: selectedAddress,
+  //                 payment_method: paymentMethod,
+  //                 payment_id: response.razorpay_payment_id,
+  //                 razorpay_order_id: response.razorpay_order_id,
+  //                 signature: response.razorpay_signature
+  //               })
+  //             ).unwrap();
+              
+  //             toast.success("Order placed successfully!");
+  //             navigate("/user/trackorder");
+  //           } catch (error) {
+  //             toast.error(error.message || "Payment verification failed");
+  //           }
+  //         }
+  //       };
+  
+  //       const rzp = new Razorpay(options);
+  //       rzp.open();
+  //     } else {
+  //     await dispatch(
+  //       createOrder({
+  //         address_id: selectedAddress,
+  //         payment_method: paymentMethod,
+  //       }),
+  //     ).unwrap()
+
+  //     toast.success("Order placed successfully!")
+  //     navigate("/user/trackorder")
+  //   }} catch (error) {
+  //     toast.error(error.message || "Failed to place order")
+  //   } finally {
+  //     setLoading(false)
+  //   }
+  // }
+
+  const handlePlaceOrder = async () => {
+  if (!selectedAddress) {
+    toast.error("Please select a delivery address");
+    return;
+  }
+
+  try {
+    setLoading(true);
+
+    if (paymentMethod === 'card') {
+      // Check if Razorpay is loaded
+      if (typeof window.Razorpay === 'undefined') {
+        toast.error("Payment gateway is not loaded. Please try again later.");
+        return;
+      }
+
+      console.log('Creating Razorpay order...');
+      const razorpayOrderRes = await axiosInstance.post('/orders/create_razorpay_order/');
+      console.log('Razorpay order response:', razorpayOrderRes.data);
+      
+      const orderData = razorpayOrderRes.data;
+
+      // Move handlePaymentSuccess outside of options to avoid closure issues
+      const handlePaymentSuccess = async (paymentResponse) => {
+        try {
+          console.log('Handling payment success:', paymentResponse);
+          const response = await axiosInstance.post('/orders/orders/create_from_cart/', {
+            address_id: selectedAddress,
+            payment_method: paymentMethod,
+            payment_id: paymentResponse.razorpay_payment_id,
+            razorpay_order_id: paymentResponse.razorpay_order_id,
+            signature: paymentResponse.razorpay_signature
+          });
+          
+          console.log('Order creation response:', response.data);
+          toast.success("Order placed successfully!");
+          navigate("/user/trackorder");
+        } catch (error) {
+          console.error('Error creating order:', error);
+          toast.error(error.response?.data?.error || "Failed to create order");
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const options = {
+        key: 'rzp_test_MIlvGi78yuccr2', // Move key to environment variable
+        amount: orderData.amount*100,
+        currency: orderData.currency,
+        name: "Uniformis Shoppe",
+        description: "Payment for your order",
+        order_id: orderData.id,
+        prefill: {
+          name: "Customer Name",
+          email: "customer@example.com",
+          contact: "9633134666"
+        },
+        handler: handlePaymentSuccess,
+        modal: {
+          ondismiss: function() {
+            console.log('Payment modal closed');
+            setLoading(false);
+          }
+        },
+        theme: {
+          color: "#3399cc"
+        }
+      };
+
+      console.log('Initializing Razorpay with options:', options);
+      const rzp = new window.Razorpay(options);
+      
+      // Add error handling for Razorpay
+      rzp.on('payment.failed', function(response) {
+        console.error('Payment failed:', response.error);
+        toast.error(response.error.description || "Payment failed");
+        setLoading(false);
+      });
+
+      console.log('Opening Razorpay modal...');
+      rzp.open();
+    } else {
+      // Handle COD payment
+      try {
+        const response = await axiosInstance.post('/orders/orders/create_from_cart/', {
           address_id: selectedAddress,
           payment_method: paymentMethod,
-        }),
-      ).unwrap()
-
-      toast.success("Order placed successfully!")
-      navigate("/user/trackorder")
-    } catch (error) {
-      toast.error(error.message || "Failed to place order")
-    } finally {
-      setLoading(false)
+        });
+        
+        console.log('COD order creation response:', response.data);
+        toast.success("Order placed successfully!");
+        navigate("/user/trackorder");
+      } catch (error) {
+        console.error('Error creating COD order:', error);
+        toast.error(error.response?.data?.error || "Failed to create order");
+      }
     }
+  } catch (error) {
+    console.error('Order creation error:', error);
+    toast.error(error.response?.data?.error || "Failed to place order");
+  } finally {
+    setLoading(false);
   }
+};
 
   if (!items || items.length === 0) {
     return (

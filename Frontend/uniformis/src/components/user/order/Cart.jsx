@@ -21,7 +21,7 @@ const CartPage = () => {
     loadCart();
   }, [dispatch]);
 
-  // Initialize local quantities when items change
+  // Initialize local quantities when items change  
   useEffect(() => {
     const quantities = {};
     items.forEach(item => {
