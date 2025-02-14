@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Cart, CartItem, Order, OrderItem
+from .models import Cart, CartItem, Order, OrderItem,Wishlist,WishlistItem
 from products.serializers import ProductSizeColorSerializer
 from user_app.models import Address
 from user_app.serializers import UserSerializer 
@@ -191,6 +191,123 @@ class SalesReport:
             'summary': orders,
             'product_sales': product_sales
         }
+    
+
+
+
+class WishlistItemSerializer(serializers.ModelSerializer):
+    variant = ProductSizeColorSerializer()
+    total_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    product_name = serializers.SerializerMethodField()
+    product_image = serializers.SerializerMethodField()
+    product_id = serializers.SerializerMethodField()
+    discount_percentage = serializers.SerializerMethodField()  # Keep your existing discount calculation
+    final_price = serializers.SerializerMethodField()  # Add this new field
+
+    class Meta:
+        model = WishlistItem
+        fields = [
+            'id', 'variant', 'quantity', 'total_price', 'product_name', 
+            'product_image', 'product_id', 'discount_percentage', 'final_price'
+        ]
+
+    def get_discount_percentage(self, obj):
+        now = timezone.now()
+        product = obj.variant.product
+        
+        # Get product offer
+        product_offer = product.offers.filter(
+            offer_type='PRODUCT',
+            is_active=True,
+            valid_from__lte=now,
+            valid_until__gte=now
+        ).order_by('-discount_percentage').first()
+
+        # Get category offer
+        category_offer = product.category.offers.filter(
+            offer_type='CATEGORY',
+            is_active=True,
+            valid_from__lte=now,
+            valid_until__gte=now
+        ).order_by('-discount_percentage').first()
+
+        # Return highest discount
+        if product_offer and category_offer:
+            return max(product_offer.discount_percentage, category_offer.discount_percentage)
+        elif product_offer:
+            return product_offer.discount_percentage
+        elif category_offer:
+            return category_offer.discount_percentage
+        return 0
+
+    def get_total_price(self, obj):
+         return obj.variant.price * obj.quantity
+
+    # def get_discounted_price(self, obj):
+    #     original_price = self.get_total_price(obj)
+    #     discount_percentage = self.get_discount_percentage(obj)
+    #     if discount_percentage:
+    #         discount_amount = (discount_percentage / 100) * original_price
+    #         return original_price - discount_amount
+    #     return original_price
+    
+    def get_final_price(self, obj):
+        original_price = obj.variant.price * obj.quantity
+        discount_percentage = self.get_discount_percentage(obj)
+        discount_amount = (original_price * discount_percentage) / 100
+        return original_price - discount_amount
+
+    def get_product_name(self, obj):
+        return obj.variant.product.name  # Fetch product name from the Product model
+
+    def get_product_image(self, obj):
+        first_image = obj.variant.product.images.first()
+        return first_image.image.url if first_image else None
+    
+    def get_product_id(self,obj):
+        return obj.variant.product.id
+    
+
+class WishlistSerializer(serializers.ModelSerializer):
+    items = WishlistItemSerializer(source='wishitems', many=True, read_only=True) 
+    total_price = serializers.SerializerMethodField()
+    total_items = serializers.SerializerMethodField()
+    total_discount = serializers.SerializerMethodField()
+    final_total = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Wishlist
+        fields = ['id', 'items', 'total_price', 'total_items','total_discount', 'final_total']
+    
+    def get_total_price(self, obj):
+        try:
+            return obj.get_total_price()
+        except AttributeError:
+            return 0
+
+    def get_total_items(self, obj):
+        try:
+            return obj.get_total_items() 
+        except AttributeError:
+            return 0
+
+    def get_total_discount(self, obj):
+        try:
+            total_discount = 0
+            for item in obj.wishitems.all():  # Changed to wishitems
+                original_price = item.get_total_price()
+                discount_percentage = WishlistItemSerializer().get_discount_percentage(item)
+                discount_amount = (original_price * discount_percentage) / 100
+                total_discount += discount_amount
+            return total_discount
+        except AttributeError:
+            return 0
+
+    def get_final_total(self, obj):
+        return self.get_total_price(obj) - self.get_total_discount(obj)
+
+
+
 # class OrderItemSerializer(serializers.ModelSerializer):
 #     image = serializers.SerializerMethodField()
 

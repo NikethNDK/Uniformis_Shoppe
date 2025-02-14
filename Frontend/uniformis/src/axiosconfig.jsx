@@ -33,7 +33,7 @@ const axiosInstance = axios.create(defaultConfig);
 const productApi = axios.create({ ...defaultConfig, baseURL: `${BASE_URL}/api/products` });
 const cartApi = axios.create({ ...defaultConfig, baseURL: `${BASE_URL}/api/orders/cart` });
 const orderApi = axios.create({ ...defaultConfig, baseURL: `${BASE_URL}/api/orders/orders` });
-
+const wishlistApi = axios.create({ ...defaultConfig,baseURL: `${BASE_URL}/api/orders/wishlist`});
 
 const refreshToken = async () => {
   try {
@@ -131,6 +131,7 @@ applyErrorInterceptor(axiosInstance);
 applyErrorInterceptor(productApi);
 applyErrorInterceptor(cartApi);
 applyErrorInterceptor(orderApi);
+applyErrorInterceptor(wishlistApi);
 
 // Helper functions for API calls
 const apiHelpers = {
@@ -228,9 +229,46 @@ const apiHelpers = {
         throw error;
       }
     }
-  }
+  },
+
+  wishlist: {
+    addItem: async (data) => {
+      try {
+        const response = await wishlistApi.post('/add_item/', data);
+        return response.data;
+      } catch (error) {
+        throw handleApiError(error);
+      }
+    },
+    removeItem: async (data) => {
+      try {
+        const response = await wishlistApi.post('/remove_item/', data);
+        return response.data;
+      } catch (error) {
+        throw handleApiError(error);
+      }
+    },
+    updateQuantity: async (data) => {
+      try {
+        const response = await wishlistApi.post('/update_quantity/', data);
+        return response.data;
+      } catch (error) {
+        throw handleApiError(error);
+      }
+    },
+    getWishlist: async () => {
+      try {
+        const response = await wishlistApi.get('/');
+        console.log("get wishlist",response.data)
+        return response.data;
+      } catch (error) {
+        throw handleApiError(error);
+      }
+    }
+  },
+
 };
 
-export { authApi, productApi, cartApi, orderApi, apiHelpers };
+export { authApi, productApi,wishlistApi, cartApi, orderApi, apiHelpers };
 export default axiosInstance;
 

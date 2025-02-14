@@ -109,7 +109,7 @@ export default function TrackOrder() {
                     <p className="text-sm text-gray-500">
                       Size: {item.size}, Color: {item.color}
                     </p>
-                    <p className="font-medium">₹{item.price}</p>
+                    <p className="font-medium">₹{order.final_total}</p>
                   </div>
                   <div className="text-right">
                     <p className={`font-medium ${getStatusColor(order.status)}`}>{order.status}</p>

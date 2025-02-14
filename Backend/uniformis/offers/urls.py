@@ -10,4 +10,6 @@ router.register(r'referral-offers', ReferralOfferViewSet, basename='referral-off
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('apply_coupons/',apply_coupon,name='apply_coupon'),
+    path('available_coupons/',available_coupons,name='available_coupons')
 ]

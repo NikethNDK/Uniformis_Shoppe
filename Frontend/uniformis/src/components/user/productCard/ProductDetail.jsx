@@ -7,6 +7,8 @@ import { useNavigate } from 'react-router-dom';
 import './ProductDetail.css'
 import { toast } from 'react-toastify';
 import { addToCart } from '../../../redux/cart/cartSlice';
+import { addToWishlist } from '../../../redux/Wishlist/wishlistSlice';
+
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -102,6 +104,19 @@ const ProductDetail = () => {
     }
   }
 
+  const handleAddToWishlist = async () => {
+        try {
+          await dispatch(addToWishlist({
+            variant_id: selectedVariant.id,
+            quantity: quantity
+          })).unwrap()
+        } catch (error) {
+          // Error handling is already done in the slice
+          toast.error('Failed to add to wishlist');
+          console.error('Failed to add to wishlist:', error);
+    
+        }
+      };
   const getAvailableColors = (size) => {
     return product.variants.filter((v) => v.size.name === size).map((v) => v.color)
   }
@@ -359,7 +374,11 @@ const ProductDetail = () => {
             >
               Buy Now
             </button>
-            <button className="p-3 border rounded-md hover:border-red-500">
+            <button 
+              className="p-3 border rounded-md hover:border-red-500"
+              onClick={()=>handleAddToWishlist()}
+              disabled={!selectedVariant || selectedVariant.stock_quantity === 0}
+            >
               <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"

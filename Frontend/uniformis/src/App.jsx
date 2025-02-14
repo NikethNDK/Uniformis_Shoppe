@@ -39,6 +39,7 @@ import CategoryPage from "./components/user/category/CategoryPage.jsx";
 
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClient } from './components/lib/queryClient.js'
+import Wishlist from "./components/user/order/Wishlist.jsx";
 function App() {
   return (
     <>
@@ -80,6 +81,7 @@ function App() {
           <Route path='trackorder' element={<TrackOrder/>}/>
           <Route path="home" element={<HomePage />} />
           <Route path="category/:id" element={<CategoryPage />} />
+          <Route path="wishlist" element={<Wishlist/>}/>
         </Route>
 
         <Route path="/category/:id" element={<CategoryPage />} />

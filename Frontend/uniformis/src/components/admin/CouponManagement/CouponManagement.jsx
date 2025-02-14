@@ -1,16 +1,15 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, Trash2, Pencil } from "lucide-react"
+import { Search, Trash2, Pencil, Calendar } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
-import { DatePicker } from "../../components/ui/date-picker"
 import { Switch } from "../../components/ui/switch"
 import { Textarea } from "../../components/ui/textarea"
 import { toast } from "react-toastify"
 import { offersApi } from "../../../adminaxiosconfig"
-import LoadingSpinner from "../../components/ui/loading-spinner" // Import the LoadingSpinner component
+import LoadingSpinner from "../../components/ui/loading-spinner"
 
 export default function CouponManagement() {
   const [coupons, setCoupons] = useState([])
@@ -21,10 +20,10 @@ export default function CouponManagement() {
     discount_percentage: "",
     minimum_purchase: "",
     usage_limit: "",
-    valid_from: new Date(),
-    valid_until: new Date(),
+    valid_from: new Date().toISOString().split('T')[0],
+    valid_until: new Date().toISOString().split('T')[0],
   })
-  const [isLoading, setIsLoading] = useState(false) // Added loading state
+  const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
     fetchCoupons()
@@ -32,13 +31,13 @@ export default function CouponManagement() {
 
   const fetchCoupons = async () => {
     try {
-      setIsLoading(true) // Added loading state
+      setIsLoading(true)
       const response = await offersApi.get("/coupons/")
       setCoupons(response.data)
     } catch (error) {
       toast.error("Failed to fetch coupons")
     } finally {
-      setIsLoading(false) // Added loading state
+      setIsLoading(false)
     }
   }
 
@@ -56,24 +55,20 @@ export default function CouponManagement() {
         toast.error("Usage limit must be at least 1")
         return
       }
-      if (newCoupon.valid_from >= newCoupon.valid_until) {
+      if (new Date(newCoupon.valid_from) >= new Date(newCoupon.valid_until)) {
         toast.error("End date must be after start date")
         return
       }
 
-      setIsLoading(true) // Added loading state
-      await offersApi.post("/coupons/", {
-        ...newCoupon,
-        valid_from: newCoupon.valid_from.toISOString(),
-        valid_until: newCoupon.valid_until.toISOString(),
-      })
+      setIsLoading(true)
+      await offersApi.post("/coupons/", newCoupon)
       toast.success("Coupon added successfully")
       resetForm()
       fetchCoupons()
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to add coupon")
     } finally {
-      setIsLoading(false) // Added loading state
+      setIsLoading(false)
     }
   }
 
@@ -106,16 +101,18 @@ export default function CouponManagement() {
       discount_percentage: "",
       minimum_purchase: "",
       usage_limit: "",
-      valid_from: new Date(),
-      valid_until: new Date(),
+      valid_from: new Date().toISOString().split('T')[0],
+      valid_until: new Date().toISOString().split('T')[0],
     })
   }
 
-  const filteredCoupons = coupons.filter((coupon) => coupon.code.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredCoupons = coupons.filter((coupon) => 
+    coupon.code.toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
   return (
     <div className="ml-64 p-8">
-      {isLoading && <LoadingSpinner />} {/* Added loading spinner */}
+      {isLoading && <LoadingSpinner />}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Coupon Management</h1>
         <div className="relative w-64">
@@ -158,16 +155,24 @@ export default function CouponManagement() {
             onChange={(e) => setNewCoupon({ ...newCoupon, minimum_purchase: e.target.value })}
             min="0"
           />
-          <DatePicker
-            selected={newCoupon.valid_from}
-            onSelect={(date) => setNewCoupon({ ...newCoupon, valid_from: date })}
-            placeholder="Valid From"
-          />
-          <DatePicker
-            selected={newCoupon.valid_until}
-            onSelect={(date) => setNewCoupon({ ...newCoupon, valid_until: date })}
-            placeholder="Valid Until"
-          />
+          <div className="relative">
+            <Calendar className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="date"
+              value={newCoupon.valid_from}
+              onChange={(e) => setNewCoupon({ ...newCoupon, valid_from: e.target.value })}
+              className="pl-8"
+            />
+          </div>
+          <div className="relative">
+            <Calendar className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="date"
+              value={newCoupon.valid_until}
+              onChange={(e) => setNewCoupon({ ...newCoupon, valid_until: e.target.value })}
+              className="pl-8"
+            />
+          </div>
           <Textarea
             placeholder="Description"
             value={newCoupon.description}
@@ -219,4 +224,3 @@ export default function CouponManagement() {
     </div>
   )
 }
-

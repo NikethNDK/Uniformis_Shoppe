@@ -56,7 +56,7 @@ export default function Navbar() {
 
           <div className="flex items-center gap-4">
             <Link
-              to="/wishlist"
+              to="/user/wishlist"
               className="inline-flex items-center justify-center rounded-md h-10 w-10 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
             >
               <Heart className="h-5 w-5" />

@@ -41,6 +41,7 @@ export default function AdminOrderManagement() {
     try {
       setLoading(true)
       const response = await orderApi.get("")
+      console.log("admin order fetching: ",response.data)
       setOrders(response.data)
     } catch (error) {
       toast.error("Failed to fetch orders")
@@ -220,7 +221,13 @@ export default function AdminOrderManagement() {
                           <p className="text-sm text-muted-foreground">{order.payment_status}</p>
                         </div>
                       </TableCell>
-                      <TableCell className="text-right">₹{order.total_amount}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="space-y-1">
+                          <p className="font-medium">Items Total: ₹{order.subtotal}</p>
+                          <p className="text-sm text-muted-foreground">Savings: ₹{order.total_savings}</p>
+                          <p className="text-sm font-medium text-green-600">Final: ₹{order.final_total}</p>
+                        </div>
+                        </TableCell>
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -287,9 +294,14 @@ export default function AdminOrderManagement() {
                                         <p>Quantity: {item.quantity}</p>
                                       </div>
                                     </div>
-                                    <div className="text-right">
-                                      <p className="font-medium text-lg">₹{item.price}</p>
-                                      <p className="text-sm text-muted-foreground">Total: ₹{item.total_price}</p>
+                                    <div className="text-right space-y-1">
+                                      <p className="text-sm text-muted-foreground">
+                                        Original: ₹{item.original_price}
+                                      </p>
+                                      <p className="text-sm text-green-600">
+                                        Discount: ₹{item.discount_amount} ({item.discount_percentage}%)
+                                      </p>
+                                      <p className="font-medium">Final Price: ₹{item.final_price}</p>
                                     </div>
                                   </div>
                                 ))}
