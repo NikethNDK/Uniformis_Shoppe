@@ -21,6 +21,7 @@ const defaultConfig = {
   baseURL: `${BASE_URL}/api`,
   headers: {
     'Content-Type': 'application/json',
+    
   },
   timeout: 30000,
   withCredentials: true,  // Include cookies with requests

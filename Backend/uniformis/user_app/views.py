@@ -11,7 +11,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth import authenticate
 from .serializers import UserProfileSerializer
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAdminUser,IsAuthenticated
+from rest_framework.permissions import IsAdminUser,IsAuthenticated,AllowAny
 from django.middleware.csrf import get_token
 from django.http import JsonResponse
 from .utils import generate_otp, send_otp_email
@@ -537,6 +537,7 @@ def generate_random_password(length=12):
 
 @csrf_exempt
 @api_view(['POST'])
+@permission_classes([AllowAny])
 def google_login( request):
     try:
         # Get the credential token from the request
@@ -570,7 +571,8 @@ def google_login( request):
                     email=email,
                     first_name=first_name,
                     last_name=last_name,
-                    is_active=True
+                    is_active=True,
+                    is_email_verified=True
                 )
                 # Set a random password for the user
                 random_password = generate_random_password()
@@ -589,30 +591,71 @@ def google_login( request):
         
         # Create response with user data
         
-        return Response({
-        'user': {
-            'id': user.id,
-            'first_name': user.first_name,
-            'last_name': user.last_name,
-            'username': user.username,
-            'email': user.email,
-        },
-        'token': str(refresh.access_token),
-        'refresh_token': str(refresh)
-    }, status=status.HTTP_200_OK)
+    #     return Response({
+    #     'user': {
+    #         'id': user.id,
+    #         'first_name': user.first_name,
+    #         'last_name': user.last_name,
+    #         'username': user.username,
+    #         'email': user.email,
+    #     },
+    #     'token': str(refresh.access_token),
+    #     'refresh_token': str(refresh)
+    # }, status=status.HTTP_200_OK)
 
+        response = Response({
+        'type': 'SUCCESS',
+        'message': 'Login Successful',
+        'data': {
+            'user': {
+                'id': user.id,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'email': user.email,
+            }
+        }
+    }, status=status.HTTP_200_OK)
+        response.set_cookie(
+            'access_token',
+            str(refresh.access_token),
+            httponly=True,
+            secure=False,
+            samesite='Lax',
+            path='/'
+        )
+        response.set_cookie(
+            'refresh_token',
+            str(refresh),
+            httponly=True,
+            secure=False,
+            samesite='Lax',
+            path='/'
+        )
+
+        return response
     except ValueError as e:
-        # Token validation failed
-        return Response(
-            {'error': {'commonError': 'Invalid Google token'}},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response({
+            'type': 'AUTH_ERROR',
+            'message': 'Invalid Google token'
+        }, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
-        # Handle other exceptions
-        return Response(
-            {'error': {'commonError': str(e)}},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+        return Response({
+            'type': 'SERVER_ERROR',
+            'message': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    # except ValueError as e:
+    #     # Token validation failed
+    #     return Response(
+    #         {'error': {'commonError': 'Invalid Google token'}},
+    #         status=status.HTTP_400_BAD_REQUEST
+    #     )
+    # except Exception as e:
+    #     # Handle other exceptions
+    #     return Response(
+    #         {'error': {'commonError': str(e)}},
+    #         status=status.HTTP_500_INTERNAL_SERVER_ERROR
+    #     )
     
 @api_view(['GET', 'PUT'])
 @permission_classes([IsAuthenticated])

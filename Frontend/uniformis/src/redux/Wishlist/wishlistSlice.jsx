@@ -39,7 +39,8 @@ export const fetchWishlist = createAsyncThunk(
       return {
         items: formattedItems,
         total_price: response[0].total_price || 0,
-        total_items: response[0].total_items || 0,
+        // total_items: response[0].total_items || 0,
+        total_items: formattedItems.length,
         final_total: response[0].final_total || 0,
       };
     } catch (error) {
@@ -71,6 +72,16 @@ export const addToWishlist = createAsyncThunk(
         throw new Error("Maximum 5 items allowed per product");
       }
 
+      if (existingItem) {
+        toast.info("Item already in wishlist");
+        return {
+          items: currentWishlist.items,
+          total_price: currentWishlist.totalAmount,
+          total_items: currentWishlist.items.length,
+          final_total: currentWishlist.finalTotal
+        };
+      }
+
       
       const response = await apiHelpers.wishlist.addItem({ variant_id, quantity });
       
@@ -96,7 +107,8 @@ export const addToWishlist = createAsyncThunk(
 
       return {
         ...response,
-        items: formattedItems
+        items: formattedItems,
+        total_items: formattedItems.length
       };
     } catch (error) {
       const errorMessage = error.message || "Failed to add item to wishlist";
@@ -109,39 +121,107 @@ export const addToWishlist = createAsyncThunk(
   }
 );
 
+// export const removeFromWishlist = createAsyncThunk(
+//   "wishlist/removeFromWishlist", 
+//   async ({ item_id }, { rejectWithValue }) => {
+//     try {
+//       const response = await apiHelpers.wishlist.removeItem({ item_id });
+
+//       // Format items to ensure image URLs are complete and prices are parsed
+
+//       if (!response) {
+//         throw new Error("No response received");
+//       }
+
+//       const formattedItems = response.items.map(item => ({
+//         ...item,
+//         product_image: item.product_image
+//           ? item.product_image.startsWith('http')
+//             ? item.product_image
+//             : `${BASE_URL}${item.product_image}`
+//           : `${BASE_URL}/default-image.png`,  // Fallback image if not available
+//         variant: {
+//           ...item.variant,
+//           price: parseFloat(item.variant.price)
+//         }
+//       }));
+
+//       toast.success("Item removed from wishlist");
+
+//       return {
+//         ...response,
+//         items: formattedItems,
+//         final_total: response[0].final_total || 0 
+//       };
+
+//     } catch (error) {
+//       const errorMessage = "Failed to remove item from wishlist";
+//       toast.error(errorMessage);
+//       return rejectWithValue({
+//         message: errorMessage,
+//         type: error.type || "ERROR"
+//       });
+//     }
+//   }
+// );
+
 export const removeFromWishlist = createAsyncThunk(
   "wishlist/removeFromWishlist", 
   async ({ item_id }, { rejectWithValue }) => {
     try {
       const response = await apiHelpers.wishlist.removeItem({ item_id });
+      
+      // Check if response exists and has the expected structure
+      if (!response) {
+        throw new Error("No response received");
+      }
 
-      // Format items to ensure image URLs are complete and prices are parsed
-      const formattedItems = response.items.map(item => ({
-        ...item,
-        product_image: item.product_image
-          ? item.product_image.startsWith('http')
-            ? item.product_image
-            : `${BASE_URL}${item.product_image}`
-          : `${BASE_URL}/default-image.png`,  // Fallback image if not available
-        variant: {
-          ...item.variant,
-          price: parseFloat(item.variant.price)
-        }
-      }));
+      // If the response indicates an empty wishlist
+      if (Array.isArray(response) && response.length === 0) {
+        toast.success("Item removed from wishlist");
+        return {
+          items: [],
+          total_price: 0,
+          total_items: 0,
+          final_total: 0
+        };
+      }
 
-      toast.success("Item removed from wishlist");
+      // If we have items in the response
+      if (response[0]?.items) {
+        const formattedItems = response[0].items.map(item => ({
+          ...item,
+          product_image: item.product_image
+            ? item.product_image.startsWith('http')
+              ? item.product_image
+              : `${BASE_URL}${item.product_image}`
+            : `${BASE_URL}/default-image.png`,
+          variant: {
+            ...item.variant,
+            price: parseFloat(item.variant.price)
+          }
+        }));
 
-      return {
-        ...response,
-        items: formattedItems,
-        final_total: response[0].final_total || 0 
-      };
+        toast.success("Item removed from wishlist");
+
+        return {
+          items: formattedItems,
+          total_price: response[0].total_price || 0,
+          total_items: formattedItems.length,
+          final_total: response[0].final_total || 0
+        };
+      }
+
+      // If we reach here, something unexpected happened with the response
+      throw new Error("Invalid response format");
 
     } catch (error) {
-      const errorMessage = "Failed to remove item from wishlist";
-      toast.error(errorMessage);
+      // Don't show error toast if it's just an empty wishlist
+      if (error.message !== "No response received") {
+        toast.error("Failed to remove item from wishlist");
+      }
       return rejectWithValue({
-        message: errorMessage,
+        message: error.message || "Failed to remove item from wishlist",
         type: error.type || "ERROR"
       });
     }
@@ -250,7 +330,8 @@ const wishlistSlice = createSlice({
         state.items = action.payload.items || []
         state.totalAmount = action.payload.total_price || 0
         state.finalTotal=action.payload.final_total || 0
-        state.itemCount = action.payload.total_items || 0
+        // state.itemCount = action.payload.total_items || 0
+        state.itemCount = action.payload.items.length;
         state.error = null;
       })
       .addCase(fetchWishlist.rejected, (state, action) => {
@@ -268,7 +349,8 @@ const wishlistSlice = createSlice({
         state.items = action.payload.items || []
         state.totalAmount = action.payload.total_price || 0
         state.finalTotal=action.payload.final_total || 0
-        state.itemCount = action.payload.total_items || 0
+        // state.itemCount = action.payload.total_items || 0
+        state.itemCount = action.payload.items.length;
       })
       .addCase(addToWishlist.rejected, (state, action) => {
         state.loading = false
@@ -284,7 +366,10 @@ const wishlistSlice = createSlice({
         state.loading = false
         state.items = action.payload.items || []
         state.totalAmount = action.payload.total_price || 0
-        state.itemCount = action.payload.total_items || 0
+        // state.itemCount = action.payload.total_items || 0
+        state.itemCount = action.payload.items.length;
+        state.finalTotal = action.payload.final_total;
+        state.error = null;
       })
       .addCase(removeFromWishlist.rejected, (state, action) => {
         state.loading = false

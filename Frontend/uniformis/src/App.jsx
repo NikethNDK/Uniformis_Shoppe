@@ -41,6 +41,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClient } from './components/lib/queryClient.js'
 import Wishlist from "./components/user/order/Wishlist.jsx";
 import Wallet from "./components/user/wallet/Wallet.jsx";
+import BannerManagement from "./components/admin/Banner/BannerManagement.jsx";
 function App() {
   return (
     <>
@@ -62,6 +63,7 @@ function App() {
           <Route path="offermanagement" element={<OfferManagement/>}/>
           <Route path='couponmangement' element={<CouponManagement/>}/>
           <Route path='salesreport' element={<SalesReport/>}/>
+          <Route path='bannermanagement' element={<BannerManagement/>}/>
         </Route>
         <Route path="/admin/editUser" element={<AdminEditUser />} />
         

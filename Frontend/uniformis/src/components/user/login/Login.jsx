@@ -82,13 +82,16 @@ const Login = () => {
         // Initialize Google Identity Services
         window.google.accounts.id.initialize({
           client_id:'447562974245-n3dkhp35abet7aqdvfqv8flgkd39nai0.apps.googleusercontent.com',
-          callback: handleCredentialResponse
+          callback: handleCredentialResponse,
+          ux_mode: 'popup',  // Use popup instead of redirect
+            context: 'signin',
+            itp_support: true
         });
 
         // Render the button
         window.google.accounts.id.renderButton(
           document.getElementById("googleSignInDiv"),
-          { theme: 'outline', size: 'large', width: '100%' }
+          { theme: 'outline', size: 'large', width: '100%', type: 'standard' }
         );
       };
     };
@@ -111,20 +114,40 @@ const Login = () => {
         console.log('Modal state changed:', { showOTPModal, userId });
       }, [showOTPModal, userId]);
 
-      const handleCredentialResponse = async (response) => {
-        try {
-          const backendResponse = await axiosInstance.post('/google_login/', {
-            credential: response.credential // Send the credential token to your backend
-          });
-          dispatch(setAuthData(backendResponse.data));
-          dispatch(fetchUserProfile())
-          setError('');
-          navigate('/user/homepage');
-        } catch (error) {
-          console.error('Error authenticating with backend:', error);
+    //   const handleCredentialResponse = async (response) => {
+    //     try {
+    //       const backendResponse = await axiosInstance.post('/google_login/', {
+    //         credential: response.credential // Send the credential token to your backend
+    //       });
+    //       dispatch(setAuthData(backendResponse.data));
+    //       dispatch(fetchUserProfile())
+    //       setError('');
+    //       navigate('/user/homepage');
+    //     } catch (error) {
+    //       console.error('Error authenticating with backend:', error);
           
+    //     }
+    //   };
+    const handleCredentialResponse = async (response) => {
+        try {
+            const backendResponse = await axiosInstance.post('/google_login/', {
+                credential: response.credential
+            });
+            
+            if (backendResponse.data.type === 'SUCCESS') {
+                dispatch(setAuthData(backendResponse.data.data));
+                dispatch(fetchUserProfile());
+                toast.success('Login successful!');
+                navigate('/user/homepage');
+            } else {
+                toast.error(backendResponse.data.message);
+            }
+        } catch (error) {
+            console.error('Error authenticating with Google:', error);
+            toast.error(error.response?.data?.message || 'Failed to authenticate with Google');
         }
-      };
+    };
+    
 
       const handleOTPSuccess = (data) => {
         // Use dispatch instead of manually setting localStorage

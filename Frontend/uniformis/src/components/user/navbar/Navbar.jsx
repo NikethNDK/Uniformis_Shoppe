@@ -1,37 +1,39 @@
-
-import { useState, useEffect } from "react"
-import { Link, useNavigate } from "react-router-dom"
-import { ShoppingCart, Heart, User, Search } from "lucide-react"
-import { useSelector, useDispatch } from "react-redux"
-import { clearAuthData } from "../../../redux/auth/authSlice"
-import { clearProfile } from "../../../redux/profile/profileSlice"
-import { fetchProducts, fetchMoreProducts } from "../../../redux/product/userProductSlice"
-import logo from "../../../assets/logo.png"
-import { fetchCart } from "../../../redux/cart/cartSlice"
-import { Input } from "../../components/ui/input"
-import { Button } from "../../components/ui/button"
-import { Badge } from "../../components/ui/badge"
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { ShoppingCart, Heart, User, Search } from 'lucide-react';
+import { useSelector, useDispatch } from "react-redux";
+import { clearAuthData } from "../../../redux/auth/authSlice";
+import { clearProfile } from "../../../redux/profile/profileSlice";
+import { fetchProducts } from "../../../redux/product/userProductSlice";
+import logo from "../../../assets/logo.png";
+import { fetchCart } from "../../../redux/cart/cartSlice";
+import { fetchWishlist } from "../../../redux/Wishlist/wishlistSlice";
+import { Input } from "../../components/ui/input";
+import { Button } from "../../components/ui/button";
+import { Badge } from "../../components/ui/badge";
 
 export default function Navbar() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const { isAuthenticated, user } = useSelector((state) => state.auth)
-  const { data: profile } = useSelector((state) => state.profile.basicProfile)
-  const { itemCount } = useSelector((state) => state.cart)
-  const { categories } = useSelector((state) => state.userProducts)
-  const dispatch = useDispatch()
-  const navigate = useNavigate()
+  const [searchQuery, setSearchQuery] = useState("");
+  const { isAuthenticated, user } = useSelector((state) => state.auth);
+  const { data: profile } = useSelector((state) => state.profile.basicProfile);
+  const { itemCount } = useSelector((state) => state.cart);
+  const { categories } = useSelector((state) => state.userProducts);
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+
+  const { items: wishlistItems } = useSelector((state) => state.wishlist);
 
   useEffect(() => {
-    dispatch(fetchProducts())
-    dispatch(fetchCart())
-  }, [dispatch])
+    dispatch(fetchProducts());
+    dispatch(fetchCart());
+    dispatch(fetchWishlist());
+  }, [dispatch]);
 
   const handleLogout = () => {
-    dispatch(clearAuthData())
-    dispatch(clearProfile())
-    navigate("/login")
-  }
-
+    dispatch(clearAuthData());
+    dispatch(clearProfile());
+    navigate("/login");
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -57,9 +59,17 @@ export default function Navbar() {
           <div className="flex items-center gap-4">
             <Link
               to="/user/wishlist"
-              className="inline-flex items-center justify-center rounded-md h-10 w-10 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+              className="inline-flex items-center justify-center rounded-md h-10 w-10 text-sm font-medium hover:bg-accent hover:text-accent-foreground relative"
             >
               <Heart className="h-5 w-5" />
+              {wishlistItems.length > 0 && (
+                <Badge
+                  variant="destructive"
+                  className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0"
+                >
+                  {wishlistItems.length}
+                </Badge>
+              )}
             </Link>
 
             <Link
@@ -70,31 +80,30 @@ export default function Navbar() {
               {itemCount > 0 && (
                 <Badge
                   variant="destructive"
-                  className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0"
+                  className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0"
                 >
                   {itemCount}
                 </Badge>
               )}
             </Link>
 
-
-{isAuthenticated ? (
+            {isAuthenticated ? (
               <div className="flex items-center gap-4">
                 <div className="relative group">
-                <Link to={`/user/profile-information`}>
-                  <button className="flex items-center gap-2">
-                    
-                    {profile?.profile_picture ? (
-                      <img
-                        src={profile.profile_picture || "/placeholder.svg"}
-                        alt={user?.username}
-                        className="h-8 w-8 rounded-full"
-                      />
-                    ) : (
-                      <User className="h-6 w-6" />
-                    )}
-                    <span>{user?.username}</span>
-                  </button></Link>
+                  <Link to={`/user/profile-information`}>
+                    <button className="flex items-center gap-2">
+                      {profile?.profile_picture ? (
+                        <img
+                          src={profile.profile_picture || "/placeholder.svg"}
+                          alt={user?.username}
+                          className="h-8 w-8 rounded-full"
+                        />
+                      ) : (
+                        <User className="h-6 w-6" />
+                      )}
+                      <span>{user?.username}</span>
+                    </button>
+                  </Link>
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 invisible group-hover:visible">
                     <Link to="/profile" className="block px-4 py-2 hover:bg-gray-100">
                       Profile
@@ -116,11 +125,10 @@ export default function Navbar() {
                 Login
               </Link>
             )}
-        
           </div>
         </div>
 
-        <nav className="flex items-center gap-6 pb-4">
+        <nav className="flex items-center justify-center gap-6 pb-4">
           <Link to="/user/home" className="text-sm font-medium transition-colors hover:text-primary">
             Home
           </Link>
@@ -136,6 +144,5 @@ export default function Navbar() {
         </nav>
       </div>
     </header>
-  )
+  );
 }
-

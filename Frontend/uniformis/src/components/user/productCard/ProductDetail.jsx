@@ -7,8 +7,32 @@ import { useNavigate } from 'react-router-dom';
 import './ProductDetail.css'
 import { toast } from 'react-toastify';
 import { addToCart } from '../../../redux/cart/cartSlice';
-import { addToWishlist } from '../../../redux/Wishlist/wishlistSlice';
+import { addToWishlist,removeFromWishlist } from '../../../redux/Wishlist/wishlistSlice';
 
+
+const WishlistButton = ({ variant, onToggle, isInWishlist }) => {
+  return (
+    <button 
+      className="p-3 border rounded-md hover:border-red-500"
+      onClick={onToggle}
+      disabled={!variant || variant.stock_quantity === 0}
+    >
+      <svg 
+        className={`w-6 h-6 ${isInWishlist ? 'text-red-500 fill-current' : 'text-red-500'}`} 
+        fill={isInWishlist ? 'currentColor' : 'none'} 
+        stroke="currentColor" 
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2"
+          d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+        />
+      </svg>
+    </button>
+  );
+};
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -24,6 +48,9 @@ const ProductDetail = () => {
   const { products, similarProducts, loading } = useSelector((state) => state.userProducts);
   const product = products.find(p => p.id === parseInt(id));
 
+  const { items: wishlistItems } = useSelector((state) => state.wishlist);
+  const isInWishlist = wishlistItems.some(item => item.variant.id === selectedVariant?.id);
+
   useEffect(() => {
     if (!products.length) {
       dispatch(fetchProducts());
@@ -37,6 +64,46 @@ const ProductDetail = () => {
     }
   }, [product, dispatch]);
 
+
+  // const handleWishlistToggle = async () => {
+  //   if (isInWishlist) {
+  //     // Find the wishlist item and remove it
+  //     const wishlistItem = wishlistItems.find(item => item.variant.id === selectedVariant.id);
+  //     if (wishlistItem) {
+  //       await dispatch(removeFromWishlist({ item_id: wishlistItem.id }));
+  //     }
+  //   } else {
+  //     await dispatch(addToWishlist({
+  //       variant_id: selectedVariant.id,
+  //       quantity: 1
+  //     }));
+  //   }
+  // };
+
+  const handleWishlistToggle = async () => {
+    if (!selectedVariant) return;
+
+    try {
+      if (isInWishlist) {
+        const wishlistItem = wishlistItems.find(item => 
+          item.variant.id === selectedVariant.id
+        );
+        if (wishlistItem) {
+          await dispatch(removeFromWishlist({ 
+            item_id: wishlistItem.id 
+          })).unwrap();
+        }
+      } else {
+        await dispatch(addToWishlist({
+          variant_id: selectedVariant.id,
+          quantity: 1
+        })).unwrap();
+      }
+    } catch (error) {
+      console.error('Failed to update wishlist:', error);
+      
+    }
+  };
 
   const findLowestPricedVariant = (variants) => {
     return variants.reduce((lowest, current) => (current.price < lowest.price ? current : lowest))
@@ -374,7 +441,7 @@ const ProductDetail = () => {
             >
               Buy Now
             </button>
-            <button 
+            {/* <button 
               className="p-3 border rounded-md hover:border-red-500"
               onClick={()=>handleAddToWishlist()}
               disabled={!selectedVariant || selectedVariant.stock_quantity === 0}
@@ -387,7 +454,12 @@ const ProductDetail = () => {
                   d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
                 />
               </svg>
-            </button>
+            </button> */}
+            <WishlistButton 
+  variant={selectedVariant}
+  onToggle={handleWishlistToggle}
+  isInWishlist={isInWishlist}
+/>
           </div>
         </div>
         <div className="mt-16">

@@ -559,11 +559,11 @@ class AdminOrderViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def refund(self, request, pk=None):
         order = self.get_object()
-        if order.payment_method == 'cod':
-            return Response(
-                {'error': 'Cannot refund COD orders'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        # if order.payment_method == 'cod':
+        #     return Response(
+        #         {'error': 'Cannot refund COD orders'},
+        #         status=status.HTTP_400_BAD_REQUEST
+        #     )
         
         if order.payment_status == 'refunded':
             return Response(
@@ -691,16 +691,16 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=False, methods=['get'])
     def transactions(self, request):
         try:
-            # Try to get the wallet, create if it doesn't exist
+            # create if it doesn't exist
             wallet, created = Wallet.objects.get_or_create(
                 user=request.user,
                 defaults={
-                    'balance': 0  # Set default balance for new wallets
+                    'balance': 0  # default balance
                 }
             )
             
             # Get transactions for the wallet
-            transactions = wallet.transactions.all()  # Assuming you have a related name set up
+            transactions = wallet.transactions.all() 
             
             # Serialize the transactions
             serializer = WalletTransactionSerializer(transactions, many=True)

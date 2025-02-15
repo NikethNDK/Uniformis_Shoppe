@@ -3,12 +3,16 @@ import { useDispatch, useSelector } from "react-redux"
 import { fetchNewProducts } from "../../redux/product/userProductSlice"
 import ProductCard from "./ProductCard"
 import FilterComponent from "./FilterComponent"
-import { Link } from "react-router-dom"  
+import { Link } from "react-router-dom"
 
 const Home = () => {
   const dispatch = useDispatch()
-  const { products, loading, error, hasMore, currentPage  } = useSelector((state) => state.userProducts)
+  const { products, loading, error } = useSelector((state) => state.userProducts)
   const [filteredProducts, setFilteredProducts] = useState([])
+  const [displayedProducts, setDisplayedProducts] = useState([])
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 9
+  const loadMoreCount = 6
 
   useEffect(() => {
     dispatch(fetchNewProducts())
@@ -19,26 +23,24 @@ const Home = () => {
       const thirtyDaysAgo = new Date()
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
       const newArrivals = products.filter((product) => {
-
         if (product.created_at) {
           return new Date(product.created_at) >= thirtyDaysAgo
         }
-        return true // Include products without created_at date
+        return true
       })
       
-      console.log("Available products:", products.length)
-      console.log("Filtered new arrivals:", newArrivals.length)
-      
-      // If no new arrivals are found, show all products
-      setFilteredProducts(newArrivals.length > 0 ? newArrivals : products)
+      const initialProducts = newArrivals.length > 0 ? newArrivals : products
+      setFilteredProducts(initialProducts)
+      setDisplayedProducts(initialProducts.slice(0, itemsPerPage))
     }
   }, [products])
 
-  const handleLoadMore = () => {
-    if (!loading && hasMore) {
-      dispatch(fetchNewProducts(currentPage));
-    }
-  };
+  const calculateDiscountedPrice = (product) => {
+    return product.variants.reduce((min, variant) => {
+      const discountedPrice = variant.price * (1 - (variant.discount_percentage || 0) / 100)
+      return discountedPrice < min ? discountedPrice : min
+    }, product.variants[0]?.price || 0)
+  }
 
   const handleFilter = (filters) => {
     let filtered = [...products]
@@ -51,25 +53,31 @@ const Home = () => {
 
     if (filters.minPrice) {
       filtered = filtered.filter((product) => {
-        const lowestPrice = product.variants.reduce(
-          (min, variant) => (variant.price < min ? variant.price : min),
-          product.variants[0]?.price || 0
-        )
-        return lowestPrice >= filters.minPrice
+        const discountedPrice = calculateDiscountedPrice(product)
+        return discountedPrice >= filters.minPrice
       })
     }
 
     if (filters.maxPrice) {
       filtered = filtered.filter((product) => {
-        const lowestPrice = product.variants.reduce(
-          (min, variant) => (variant.price < min ? variant.price : min),
-          product.variants[0]?.price || 0
-        )
-        return lowestPrice <= filters.maxPrice
+        const discountedPrice = calculateDiscountedPrice(product)
+        return discountedPrice <= filters.maxPrice
       })
     }
 
     setFilteredProducts(filtered)
+    setDisplayedProducts(filtered.slice(0, itemsPerPage))
+    setCurrentPage(1)
+  }
+
+  const handleLoadMore = () => {
+    const nextPage = currentPage + 1
+    const startIndex = displayedProducts.length
+    const endIndex = startIndex + loadMoreCount
+    const newProducts = filteredProducts.slice(startIndex, endIndex)
+    
+    setDisplayedProducts([...displayedProducts, ...newProducts])
+    setCurrentPage(nextPage)
   }
 
   if (loading) return (
@@ -84,38 +92,31 @@ const Home = () => {
   return (
     <div className="container mx-auto px-4">
       <h1 className="text-3xl font-bold my-8">New Arrivals</h1>
-      <div className="flex flex-col md:flex-row">
-        <div className="md:w-1/4 mb-4 md:mb-0">
-          <FilterComponent onFilter={handleFilter} />
+      <div className="flex flex-col md:flex-row gap-6">
+        <div className="md:w-1/5">
+          <div className="sticky top-4 bg-white rounded-lg shadow-sm p-4">
+            <FilterComponent onFilter={handleFilter} />
+          </div>
         </div>
-        <div className="md:w-3/4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProducts.map((product) => (
-            <Link
-              key={product.id}
-              to={`/user/product/${product.id}`}  // Changed from href to to
-              className="transition-transform duration-300 hover:scale-105"
-            >
-              <ProductCard product={product} />
-            </Link>
-          ))}
-           {hasMore && (
+        <div className="md:w-4/5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {displayedProducts.map((product) => (
+              <Link
+                key={product.id}
+                to={`/user/product/${product.id}`}
+                className="transition-transform duration-300 hover:scale-105"
+              >
+                <ProductCard product={product} />
+              </Link>
+            ))}
+          </div>
+          {filteredProducts.length > displayedProducts.length && (
             <div className="flex justify-center mt-8 mb-8">
               <button
                 onClick={handleLoadMore}
-                disabled={loading}
-                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
+                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-full shadow-md transition-all duration-300 transform hover:-translate-y-1"
               >
-                {loading ? (
-                  <span className="flex items-center">
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Loading...
-                  </span>
-                ) : (
-                  "Load More"
-                )}
+                Load More
               </button>
             </div>
           )}

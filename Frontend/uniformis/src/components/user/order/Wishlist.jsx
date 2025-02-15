@@ -52,7 +52,7 @@ const Wishlist = () => {
     } catch (error) {
       // Revert the optimistic update if the API call fails
       dispatch(fetchWishlist());
-      toast.error('Failed to remove item');
+      // toast.error('Failed to remove item');
       console.error('Failed to remove item:', error);
     }
   };

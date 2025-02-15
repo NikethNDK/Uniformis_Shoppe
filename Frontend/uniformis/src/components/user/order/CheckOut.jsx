@@ -336,7 +336,8 @@ const CheckoutPage = () => {
   }, [])
 
   const handleCouponApply = async () => {
-    if (!couponCode) {
+    
+    if (!couponCode.trim()) {
       toast.error("Please enter a coupon code");
       return;
     }
@@ -354,7 +355,7 @@ const CheckoutPage = () => {
     } catch (error) {
       console.error("Coupon application error:", error.response);
       if (error.response?.status === 400 && error.response?.data?.error) {
-        toast.error(error.response.data.error);  // Display the error message from the server
+        toast.error(error.response.data.error); 
       } else {
         toast.error("Failed to apply coupon. Please try again.");
       }
