@@ -34,6 +34,7 @@ const productApi = axios.create({ ...defaultConfig, baseURL: `${BASE_URL}/api/pr
 const cartApi = axios.create({ ...defaultConfig, baseURL: `${BASE_URL}/api/orders/cart` });
 const orderApi = axios.create({ ...defaultConfig, baseURL: `${BASE_URL}/api/orders/orders` });
 const wishlistApi = axios.create({ ...defaultConfig,baseURL: `${BASE_URL}/api/orders/wishlist`});
+const walletApi = axios.create({ ...defaultConfig,baseURL: `${BASE_URL}/api/orders/wallet`});
 
 const refreshToken = async () => {
   try {
@@ -132,6 +133,7 @@ applyErrorInterceptor(productApi);
 applyErrorInterceptor(cartApi);
 applyErrorInterceptor(orderApi);
 applyErrorInterceptor(wishlistApi);
+applyErrorInterceptor(walletApi);
 
 // Helper functions for API calls
 const apiHelpers = {
@@ -269,6 +271,6 @@ const apiHelpers = {
 
 };
 
-export { authApi, productApi,wishlistApi, cartApi, orderApi, apiHelpers };
+export { authApi, productApi,wishlistApi, cartApi, orderApi, apiHelpers,walletApi };
 export default axiosInstance;
 

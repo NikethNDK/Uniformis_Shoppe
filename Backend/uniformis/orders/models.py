@@ -72,11 +72,14 @@ class Order(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    is_returned = models.BooleanField(default=False)
+    return_reason = models.TextField(blank=True, null=True)
+
     def update_status(self, new_status):
         """
         Updates the order status.
         """
-        if new_status in dict(self.STATUS_CHOICES):
+        if new_status and new_status in dict(self.STATUS_CHOICES):
             self.status = new_status
             self.save()
             return True
@@ -145,3 +148,25 @@ class WishlistItem(models.Model):
     class Meta:
         unique_together = ('wishlist', 'variant')
 
+
+
+class Wallet(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    balance = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    def __str__(self):
+        return f"{self.user.username}'s Wallet"
+
+class WalletTransaction(models.Model):
+    TRANSACTION_TYPES = (
+        ('CREDIT', 'Credit'),
+        ('DEBIT', 'Debit'),
+    )
+    wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE, related_name='transactions')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    transaction_type = models.CharField(max_length=10, choices=TRANSACTION_TYPES)
+    description = models.CharField(max_length=255)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.transaction_type} of {self.amount} for {self.wallet.user.username}"

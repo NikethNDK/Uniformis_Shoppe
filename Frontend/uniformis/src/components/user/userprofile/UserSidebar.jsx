@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom"
 import { User, Package, MapPin, Wallet, Camera } from "lucide-react"
 import { fetchUserProfile,updateUserProfile  } from "../../../redux/profile/profileSlice"
 import { useEffect } from "react"
-import { toast } from "react-toastify"
+import { toast } from "react-toastify" 
 
 const UserSidebar = ({ onImageSelect }) => {
   const location = useLocation()
@@ -15,7 +15,7 @@ const UserSidebar = ({ onImageSelect }) => {
     { icon: User, label: "Profile Information", path: "/user/profile-information" },
     { icon: Package, label: "My Orders", path: "/user/trackorder" },
     { icon: MapPin, label: "Manage Addresses", path: "/user/address" },
-    { icon: Wallet, label: "Wallet", path: "/wallet" },
+    { icon: Wallet, label: "Wallet", path: "/user/wallet" },
   ]
 useEffect(() => {
     dispatch(fetchUserProfile())

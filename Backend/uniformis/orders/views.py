@@ -6,10 +6,10 @@ from django.db.models import Sum, Count,F
 from django.utils import timezone
 from datetime import timedelta
 from django.shortcuts import get_object_or_404
-from .models import Cart, CartItem, Order, OrderItem,Wishlist,WishlistItem
+from .models import Cart, CartItem, Order, OrderItem,Wishlist,WishlistItem,Wallet,WalletTransaction
 from offers.models import Coupon,CouponUsage
 from user_app.models import Address
-from .serializers import CartSerializer, OrderSerializer,AddressSerializer,OrderItemSerializer,WishlistSerializer
+from .serializers import CartSerializer, OrderSerializer,AddressSerializer,OrderItemSerializer,WishlistSerializer,WalletTransactionSerializer,WalletSerializer
 from products.models import ProductSizeColor
 from rest_framework.permissions import IsAdminUser
 from .payment_gateways import client, create_razorpay_order
@@ -115,88 +115,6 @@ class CartViewSet(viewsets.ModelViewSet):
                 {'error': 'Item not found in cart'},
                 status=status.HTTP_404_NOT_FOUND
             )
-
-
-# class WishlistViewSet(viewsets.ModelViewSet):
-#     serializer_class = WishlistSerializer
-#     permission_classes = [IsAuthenticated]
-
-#     def get_queryset(self):
-#         return Wishlist.objects.filter(user=self.request.user)
-
-#     def get_or_create_wishlist(self):
-#         wishlist, created = Wishlist.objects.get_or_create(user=self.request.user)
-#         return wishlist
-
-#     @action(detail=False, methods=['post'])
-#     def add_item(self, request):
-#         wishlist = self.get_or_create_wishlist()
-#         variant_id = request.data.get('variant_id')
-#         quantity = int(request.data.get('quantity', 1))
-
-#         variant = get_object_or_404(ProductSizeColor, id=variant_id)
-        
-#         if variant.stock_quantity < quantity:
-#             return Response(
-#                 {'error': 'Not enough stock available'},
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
-
-#         wishlist_item, created = WishlistItem.objects.get_or_create(
-#             wishlist=wishlist,
-#             variant=variant,
-#             defaults={'quantity': quantity}
-#         )
-
-#         if not created:
-#             wishlist_item.quantity = min(wishlist_item.quantity + quantity, variant.stock_quantity)
-#             wishlist_item.save()
-
-#         serializer = self.get_serializer(wishlist)
-#         return Response(serializer.data)
-
-#     @action(detail=False, methods=['post'])
-#     def remove_item(self, request):
-#         wishlist = self.get_or_create_wishlist()
-#         item_id = request.data.get('item_id')
-        
-#         try:
-#             wishlist_item = WishlistItem.objects.get(wishlist=wishlist, id=item_id)
-#             wishlist_item.delete()
-#             serializer = self.get_serializer(wishlist)
-#             return Response(serializer.data)
-#         except WishlistItem.DoesNotExist:
-#             return Response(
-#                 {'error': 'Item not found in cart'},
-#                 status=status.HTTP_404_NOT_FOUND
-#             )
-
-#     @action(detail=False, methods=['post'])
-#     def update_quantity(self, request):
-#         wishlist = self.get_or_create_wishlist()
-#         item_id = request.data.get('item_id')
-#         quantity = int(request.data.get('quantity', 1))
-
-#         try:
-#             wishlist_item = WishlistItem.objects.get(wishlist=wishlist, id=item_id)
-#             if quantity <= 0:
-#                 wishlist_item.delete()
-#             else:
-#                 if quantity > wishlist_item.variant.stock_quantity:
-#                     return Response(
-#                         {'error': 'Not enough stock available'},
-#                         status=status.HTTP_400_BAD_REQUEST
-#                     )
-#                 wishlist_item.quantity = quantity
-#                 wishlist_item.save()
-
-#             serializer = self.get_serializer(wishlist)
-#             return Response(serializer.data)
-#         except WishlistItem.DoesNotExist:
-#             return Response(
-#                 {'error': 'Item not found in wishlist'},
-#                 status=status.HTTP_404_NOT_FOUND
-#             )
 
 
 class WishlistViewSet(viewsets.ModelViewSet):
@@ -321,120 +239,6 @@ class OrderViewSet(viewsets.ModelViewSet):
             logger.error("Error creating Razorpay order: %s", str(e))
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    # @action(detail=False, methods=['post'])
-    # def create_from_cart(self, request):
-    #     try:
-    #         cart = get_object_or_404(Cart, user=self.request.user)
-            
-    #         if not cart.items.exists():
-    #             return Response(
-    #                 {'error': 'Cart is empty'},
-    #                 status=status.HTTP_400_BAD_REQUEST
-    #             )
-
-    #         address_id = request.data.get('address_id')
-    #         payment_method = request.data.get('payment_method')
-    #         coupon_code = request.data.get('coupon_code')
-
-    #         # Calculate totals
-    #         subtotal = sum(item.get_total_price() for item in cart.items.all())
-    #         total_discount = 0
-    #         coupon_discount = 0
-    #         # Apply coupon if provided
-    #         coupon = None
-    #         if coupon_code:
-    #             try:
-    #                 coupon = Coupon.objects.get(
-    #                     code=coupon_code,
-    #                     is_active=True,
-    #                     valid_from__lte=timezone.now(),
-    #                     valid_until__gte=timezone.now()
-    #                 )
-    #                 if subtotal >= coupon.minimum_purchase:
-    #                     coupon_discount = (subtotal * coupon.discount_percentage) / 100
-    #             except Coupon.DoesNotExist:
-    #                 return Response(
-    #                     {'error': 'Invalid coupon code'},
-    #                     status=status.HTTP_400_BAD_REQUEST
-    #                 )  
-                
-    #         # Verify Razorpay payment if card payment
-    #         if payment_method == 'card':
-    #             payment_data = {
-    #                 'razorpay_payment_id': request.data.get('payment_id'),
-    #                 'razorpay_order_id': request.data.get('razorpay_order_id'),
-    #                 'razorpay_signature': request.data.get('signature')
-    #             }
-                
-    #             try:
-    #                 client.utility.verify_payment_signature(payment_data)
-    #             except razorpay.errors.SignatureVerificationError as e:
-    #                 return Response(
-    #                     {'error': 'Invalid payment signature'}, 
-    #                     status=status.HTTP_400_BAD_REQUEST
-    #                 )
-
-    #         # Create order
-    #         with transaction.atomic():
-    #             order = Order.objects.create(
-    #                 user=self.request.user,
-    #                 address_id=address_id,
-    #                 payment_method=payment_method,
-    #                 subtotal=subtotal,
-    #                 discount_amount=total_discount,
-    #                 coupon_discount=coupon_discount,
-    #                 coupon=coupon,
-    #                 delivery_charges=0,
-    #                 payment_status='completed' if payment_method == 'card' else 'pending'
-    #             )
-
-    #         # Create order items and update stock
-    #         for cart_item in cart.items.all():
-    #             # Calculate item discount
-    #             original_price = cart_item.variant.price * cart_item.quantity
-    #             discount_amount = self.calculate_item_discount(cart_item)
-
-    #             OrderItem.objects.create(
-    #                 order=order,
-    #                 variant=cart_item.variant,
-    #                 product_name=cart_item.variant.product.name,
-    #                 size=cart_item.variant.size.name,
-    #                 color=cart_item.variant.color.name,
-    #                 quantity=cart_item.quantity,
-    #                 original_price=original_price,
-    #                 discount_amount=discount_amount,
-    #                 final_price=original_price - discount_amount
-    #             )
-    #             total_discount += discount_amount
-    #             # Update order with final discount amount
-    #             order.discount_amount = total_discount
-    #             order.save()
-
-    #             # Create coupon usage record if applicable
-    #             if coupon:
-    #                 CouponUsage.objects.create(coupon=coupon, user=self.request.user)                
-    #             # Update stock in a transaction
-    #             with transaction.atomic():
-    #                 variant = cart_item.variant
-    #                 if variant.stock_quantity < cart_item.quantity:
-    #                     raise ValidationError(f"Not enough stock for {variant.product.name}")
-    #                 variant.stock_quantity -= cart_item.quantity
-    #                 variant.save()
-
-    #         # Clear cart
-    #         cart.items.all().delete()
-
-    #         serializer = self.get_serializer(order)
-    #         return Response(serializer.data, status=status.HTTP_201_CREATED)
-            
-    #     except ValidationError as e:
-    #         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    #     except Exception as e:
-    #         logger.error("Error creating order: %s", str(e))
-    #         return Response(
-    #             {'error': "Failed to create order"}, 
-    #             status=status.HTTP_500_INTERNAL_SERVER_ERROR
-    #         )
     @action(detail=False, methods=['post'])
     def create_from_cart(self, request):
         try:
@@ -603,38 +407,112 @@ class OrderViewSet(viewsets.ModelViewSet):
         # Calculate discount amount
         original_price = cart_item.variant.price * cart_item.quantity
         return (original_price * discount_percentage) / 100
+    
+    @action(detail=True, methods=['post'])
+    def return_order(self, request, pk=None):
+        order = self.get_object()
+        return_reason = request.data.get('return_reason')
 
+        if not return_reason:
+            return Response({'error': 'Return reason is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if order.status != 'delivered':
+            return Response({'error': 'Only delivered orders can be returned'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if order.is_returned:
+            return Response({'error': 'This order has already been returned'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Process the return
+        order.is_returned = True
+        order.return_reason = return_reason
+        order.status = 'returned'
+        order.save()
+
+        # Increase stock
+        for item in order.items.all():
+            item.variant.stock_quantity += item.quantity
+            item.variant.save()
+
+        return Response({'message': 'Return request submitted successfully'}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
         order = self.get_object()
-        
+
+        if order.status == 'delivered':
+            return Response({'error': 'Cannot cancel a delivered order'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if order.status == 'cancelled':
+            return Response({'error': 'Order is already cancelled'}, status=status.HTTP_400_BAD_REQUEST)
+
         if not order.can_cancel():
-            return Response(
-                {'error': 'Order cannot be cancelled'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
+            return Response({'error': 'Order cannot be cancelled. Cancellation is only allowed within 48 hours of placing the order'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Update order status
         order.status = 'cancelled'
         order.save()
-        
-        return Response({'status': 'Order cancelled'})
+
+        # Increase stock
+        for item in order.items.all():
+            item.variant.stock_quantity += item.quantity
+            item.variant.save()
+
+        return Response({'message': 'Order cancelled successfully'}, status=status.HTTP_200_OK)
+
+    # @action(detail=True, methods=['post'])
+    # def cancel(self, request, pk=None):
+    #     try:
+    #         order = self.get_object()
+
+    #         # Add more detailed validation
+    #         if order.status == 'delivered':
+    #             return Response(
+    #                 {'error': 'Cannot cancel a delivered order'},
+    #                 status=status.HTTP_400_BAD_REQUEST
+    #             )
+
+    #         if order.status == 'cancelled':
+    #             return Response(
+    #                 {'error': 'Order is already cancelled'},
+    #                 status=status.HTTP_400_BAD_REQUEST
+    #             )
+
+    #         # Check if order is within cancellation window (2 days)
+    #         if not order.can_cancel():
+    #             return Response(
+    #                 {'error': 'Order cannot be cancelled. Cancellation is only allowed within 48 hours of placing the order'},
+    #                 status=status.HTTP_400_BAD_REQUEST
+    #             )
+
+    #         # Update order status
+    #         order.status = 'cancelled'
+
+    #         # If payment was already made, mark for refund
+    #         if order.payment_status == 'completed':
+    #             order.payment_status = 'refunded'
+
+    #         order.save()
+
+    #         # Return the updated order data
+    #         serializer = self.get_serializer(order)
+    #         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    #     except Exception as e:
+    #         logger.error(f"Error cancelling order {pk}: {str(e)}")
+    #         return Response(
+    #             {'error': 'Failed to cancel order'},
+    #             status=status.HTTP_500_INTERNAL_SERVER_ERROR
+    #         )
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
-        instance.update_status()  
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
-
+    
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
-        # Update status for all orders
-        for order in queryset:
-            order.update_status('processing') 
-        
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
-
 
 class AddressViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
@@ -692,10 +570,21 @@ class AdminOrderViewSet(viewsets.ModelViewSet):
                 {'error': 'Order is already refunded'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
+        # Process the refund
+        wallet, created = Wallet.objects.get_or_create(user=order.user)
+        WalletTransaction.objects.create(
+            wallet=wallet,
+            amount=order.final_total,
+            transaction_type='CREDIT',
+            description=f'Refund for order #{order.order_number}'
+        )
+        wallet.balance += order.final_total
+        wallet.save()
             
         order.payment_status = 'refunded'
         order.save()
-        return Response({'status': 'Refund processed'})
+        return Response({'status': 'Refund processed and credited to the wallet'})
     
 @action(detail=False, methods=['post'])
 def razorpay_webhook(self, request):
@@ -790,6 +679,203 @@ class SalesReportViewSet(viewsets.ViewSet):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"error": "Failed to generate report"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class WalletViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = WalletSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Wallet.objects.filter(user=self.request.user)
+
+    @action(detail=False, methods=['get'])
+    def transactions(self, request):
+        try:
+            # Try to get the wallet, create if it doesn't exist
+            wallet, created = Wallet.objects.get_or_create(
+                user=request.user,
+                defaults={
+                    'balance': 0  # Set default balance for new wallets
+                }
+            )
+            
+            # Get transactions for the wallet
+            transactions = wallet.transactions.all()  # Assuming you have a related name set up
+            
+            # Serialize the transactions
+            serializer = WalletTransactionSerializer(transactions, many=True)
+            
+            return Response({
+                'wallet_balance': wallet.balance,
+                'transactions': serializer.data
+            })
+            
+        except Exception as e:
+            return Response({
+                'error': 'Failed to fetch wallet transactions',
+                'detail': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    # @action(detail=False, methods=['post'])
+    # def create_from_cart(self, request):
+    #     try:
+    #         cart = get_object_or_404(Cart, user=self.request.user)
+            
+    #         if not cart.items.exists():
+    #             return Response(
+    #                 {'error': 'Cart is empty'},
+    #                 status=status.HTTP_400_BAD_REQUEST
+    #             )
+
+    #         address_id = request.data.get('address_id')
+    #         payment_method = request.data.get('payment_method')
+    #         coupon_code = request.data.get('coupon_code')
+
+    #         # Calculate totals
+    #         subtotal = sum(item.get_total_price() for item in cart.items.all())
+    #         total_discount = 0
+    #         coupon_discount = 0
+    #         # Apply coupon if provided
+    #         coupon = None
+    #         if coupon_code:
+    #             try:
+    #                 coupon = Coupon.objects.get(
+    #                     code=coupon_code,
+    #                     is_active=True,
+    #                     valid_from__lte=timezone.now(),
+    #                     valid_until__gte=timezone.now()
+    #                 )
+    #                 if subtotal >= coupon.minimum_purchase:
+    #                     coupon_discount = (subtotal * coupon.discount_percentage) / 100
+    #             except Coupon.DoesNotExist:
+    #                 return Response(
+    #                     {'error': 'Invalid coupon code'},
+    #                     status=status.HTTP_400_BAD_REQUEST
+    #                 )  
+                
+    #         # Verify Razorpay payment if card payment
+    #         if payment_method == 'card':
+    #             payment_data = {
+    #                 'razorpay_payment_id': request.data.get('payment_id'),
+    #                 'razorpay_order_id': request.data.get('razorpay_order_id'),
+    #                 'razorpay_signature': request.data.get('signature')
+    #             }
+                
+    #             try:
+    #                 client.utility.verify_payment_signature(payment_data)
+    #             except razorpay.errors.SignatureVerificationError as e:
+    #                 return Response(
+    #                     {'error': 'Invalid payment signature'}, 
+    #                     status=status.HTTP_400_BAD_REQUEST
+    #                 )
+
+    #         # Create order
+    #         with transaction.atomic():
+    #             order = Order.objects.create(
+    #                 user=self.request.user,
+    #                 address_id=address_id,
+    #                 payment_method=payment_method,
+    #                 subtotal=subtotal,
+    #                 discount_amount=total_discount,
+    #                 coupon_discount=coupon_discount,
+    #                 coupon=coupon,
+    #                 delivery_charges=0,
+    #                 payment_status='completed' if payment_method == 'card' else 'pending'
+    #             )
+
+    #         # Create order items and update stock
+    #         for cart_item in cart.items.all():
+    #             # Calculate item discount
+    #             original_price = cart_item.variant.price * cart_item.quantity
+    #             discount_amount = self.calculate_item_discount(cart_item)
+
+    #             OrderItem.objects.create(
+    #                 order=order,
+    #                 variant=cart_item.variant,
+    #                 product_name=cart_item.variant.product.name,
+    #                 size=cart_item.variant.size.name,
+    #                 color=cart_item.variant.color.name,
+    #                 quantity=cart_item.quantity,
+    #                 original_price=original_price,
+    #                 discount_amount=discount_amount,
+    #                 final_price=original_price - discount_amount
+    #             )
+    #             total_discount += discount_amount
+    #             # Update order with final discount amount
+    #             order.discount_amount = total_discount
+    #             order.save()
+
+    #             # Create coupon usage record if applicable
+    #             if coupon:
+    #                 CouponUsage.objects.create(coupon=coupon, user=self.request.user)                
+    #             # Update stock in a transaction
+    #             with transaction.atomic():
+    #                 variant = cart_item.variant
+    #                 if variant.stock_quantity < cart_item.quantity:
+    #                     raise ValidationError(f"Not enough stock for {variant.product.name}")
+    #                 variant.stock_quantity -= cart_item.quantity
+    #                 variant.save()
+
+    #         # Clear cart
+    #         cart.items.all().delete()
+
+    #         serializer = self.get_serializer(order)
+    #         return Response(serializer.data, status=status.HTTP_201_CREATED)
+            
+    #     except ValidationError as e:
+    #         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    #     except Exception as e:
+    #         logger.error("Error creating order: %s", str(e))
+    #         return Response(
+    #             {'error': "Failed to create order"}, 
+    #             status=status.HTTP_500_INTERNAL_SERVER_ERROR
+    #         )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     # @action(detail=False, methods=['get'], url_path="download_report")
     # def download_report(self, request):

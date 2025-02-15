@@ -1,4 +1,4 @@
-"use client"
+
 
 import { useEffect, useState } from "react"
 import { format } from "date-fns"
@@ -40,13 +40,53 @@ export default function TrackOrder() {
 
   const handleCancel = async (orderId) => {
     try {
-      await orderApi.post(`/${orderId}/cancel/`)
-      toast.success("Order cancelled successfully")
-      fetchOrders()
+        const response = await orderApi.post(`${orderId}/cancel/`);
+        
+        if (response.data) {
+            toast.success("Order cancelled successfully");
+            // Update the specific order in the state
+            setOrders(prevOrders => 
+                prevOrders.map(order => 
+                    order.id === orderId 
+                        ? { ...order, status: 'cancelled' }
+                        : order
+                )
+            );
+        }
     } catch (error) {
-      toast.error("Failed to cancel order")
+        // More detailed error handling
+        const errorMessage = error.response?.data?.error || "Failed to cancel order";
+        toast.error(errorMessage);
+        console.error("Cancel order error:", error);
     }
+};
+
+const handleReturn = async (orderId) => {
+  try {
+    const returnReason = prompt("Please provide a reason for returning the order:");
+    if (!returnReason) {
+      toast.error("Return reason is required");
+      return;
+    }
+
+    const response = await orderApi.post(`${orderId}/return_order/`, { return_reason: returnReason });
+    
+    if (response.data) {
+      toast.success("Return request submitted successfully");
+      setOrders(prevOrders => 
+        prevOrders.map(order => 
+          order.id === orderId 
+            ? { ...order, status: 'returned', is_returned: true }
+            : order
+        )
+      );
+    }
+  } catch (error) {
+    const errorMessage = error.response?.data?.error || "Failed to submit return request";
+    toast.error(errorMessage);
+    console.error("Return order error:", error);
   }
+};
 
   const getStatusColor = (status) => {
     switch (status.toLowerCase()) {
@@ -126,9 +166,18 @@ export default function TrackOrder() {
                       </Button>
                     )}
                     {order.status === "delivered" && (
-                      <Button variant="outline" size="sm" className="mt-2">
-                        Review
-                      </Button>
+                        <div className="space-x-2">
+                          <Button variant="outline" size="sm">
+                            Review
+                          </Button>
+                          <Button 
+                            variant="secondary" 
+                            size="sm" 
+                            onClick={() => handleReturn(order.id)}
+                          >
+                            Return
+                          </Button>
+                        </div>
                     )}
                   </div>
                 </CardContent>

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Cart, CartItem, Order, OrderItem,Wishlist,WishlistItem
+from .models import Cart, CartItem, Order, OrderItem,Wishlist,WishlistItem,Wallet,WalletTransaction
 from products.serializers import ProductSizeColorSerializer
 from user_app.models import Address
 from user_app.serializers import UserSerializer 
@@ -141,7 +141,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'id', 'order_number', 'status', 'payment_status', 
             'payment_method', 'subtotal', 'discount_amount',
             'coupon_discount', 'delivery_charges', 'final_total',
-            'total_savings','created_at', 'items', 'user'
+            'total_savings','created_at', 'items', 'user','is_returned', 'return_reason'
         ]
     
     def get_user(self, obj):
@@ -306,7 +306,15 @@ class WishlistSerializer(serializers.ModelSerializer):
     def get_final_total(self, obj):
         return self.get_total_price(obj) - self.get_total_discount(obj)
 
+class WalletSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Wallet
+        fields = ['id', 'balance']
 
+class WalletTransactionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WalletTransaction
+        fields = ['id', 'amount', 'transaction_type', 'description', 'timestamp']
 
 # class OrderItemSerializer(serializers.ModelSerializer):
 #     image = serializers.SerializerMethodField()
