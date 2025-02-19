@@ -42,6 +42,7 @@ const AddressManagement = () => {
   }
 
   const validateForm = () => {
+    console.log('vali',formData)
     if (!formData.name) {
       toast.error("Name is required")
       return false
@@ -75,9 +76,9 @@ const AddressManagement = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-
-    if (!validateForm()) return
-
+    console.log(formData)
+    // if (!validateForm()) return 
+    console.log('validateForm')
     try {
       if (isEditing) {
         await axiosInstance.put(`/addresses/${editId}/`, formData)

@@ -36,7 +36,8 @@
   .logo-img {
     max-width: 100%; 
     width:15rem;
-    height: auto;     
+    height: auto; 
+    /* margin-left: 18rem;      */
   }
   
   .form-section {

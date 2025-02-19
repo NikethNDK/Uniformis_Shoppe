@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { Search } from 'lucide-react';
 import { toast } from "react-toastify";
-import Invoice from "../../admin/OrderManagement/Invoice";
+
 import { Input } from "../../components/ui/input";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle  } from "../../components/ui/card";
@@ -155,15 +155,6 @@ export default function TrackOrder() {
       setItemCancelReason("");
       setSelectedItem(null);
     }
-  };
-
-  const handleCloseInvoice = () => {
-    setInvoiceDialogOpen(false);
-    setSelectedOrder(null);
-    // Add a small delay to ensure clean up
-    setTimeout(() => {
-      document.body.style.overflow = 'auto';
-    }, 100);
   };
 
   return (
@@ -338,14 +329,85 @@ export default function TrackOrder() {
         </DialogContent>
       </Dialog>
 
-      {invoiceDialogOpen && selectedOrder && (
-        <Dialog open={invoiceDialogOpen} onOpenChange={handleCloseInvoice}>
-          <Invoice 
-            order={selectedOrder} 
-            onClose={handleCloseInvoice}
-          />
-        </Dialog>
-      )}
+
+<Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Invoice</DialogTitle>
+          </DialogHeader>
+          {selectedOrder && (
+            <div className="mt-4">
+              <div className="text-center mb-6">
+                <Package2 className="h-12 w-12 mx-auto mb-2" />
+                <h2 className="text-2xl font-bold">Uniformis Shoppe</h2>
+                <p className="text-sm text-gray-600">123 Fashion Street, Style City, SC 54321</p>
+              </div>
+              <div className="flex justify-between mb-6">
+                <div>
+                  <h3 className="font-semibold">Bill To:</h3>
+                  <p>{selectedOrder.delivery_address.name}</p>
+                  <p>{selectedOrder.delivery_address.house_no}</p>
+                  <p>
+                    {selectedOrder.delivery_address.city}, {selectedOrder.delivery_address.state}
+                  </p>
+                  <p>{selectedOrder.delivery_address.pin_code}</p>
+                </div>
+                <div className="text-right">
+                  <p>
+                    <strong>Invoice Date:</strong> {format(new Date(selectedOrder.created_at), "dd.MM.yyyy")}
+                  </p>
+                  <p>
+                    <strong>Order Number:</strong> {selectedOrder.order_number}
+                  </p>
+                </div>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Sl No.</TableHead>
+                    <TableHead>Item Description</TableHead>
+                    <TableHead>Qty</TableHead>
+                    <TableHead>Price</TableHead>
+                    <TableHead>Discount</TableHead>
+                    <TableHead>Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {selectedOrder.items.map((item, index) => (
+                    <TableRow key={item.id} className={item.status === "cancelled" ? "line-through text-gray-500" : ""}>
+                      <TableCell>{index + 1}</TableCell>
+                      <TableCell>{item.product_name}</TableCell>
+                      <TableCell>{item.quantity}</TableCell>
+                      <TableCell>₹{item.price.toFixed(2)}</TableCell>
+                      <TableCell>₹{item.discount_amount.toFixed(2)}</TableCell>
+                      <TableCell>₹{item.final_price.toFixed(2)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <div className="mt-6 text-right">
+                <p>
+                  <strong>Subtotal:</strong> ₹{selectedOrder.subtotal.toFixed(2)}
+                </p>
+                <p>
+                  <strong>Discount:</strong> ₹{selectedOrder.discount_amount.toFixed(2)}
+                </p>
+                {selectedOrder.coupon_discount > 0 && (
+                  <p>
+                    <strong>Coupon Discount:</strong> ₹{selectedOrder.coupon_discount.toFixed(2)}
+                  </p>
+                )}
+                <p className="text-xl font-bold mt-2">
+                  <strong>Total:</strong> ₹{selectedOrder.final_total.toFixed(2)}
+                </p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setInvoiceDialogOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
 
       <Dialog open={itemCancelDialogOpen} onOpenChange={setItemCancelDialogOpen}>

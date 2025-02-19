@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Cart, CartItem, Order, OrderItem,Wishlist,WishlistItem,Wallet,WalletTransaction
+from .models import Cart, CartItem, Order, OrderItem,Wishlist,WishlistItem,Wallet,WalletTransaction,OrderAddress
 from products.serializers import ProductSizeColorSerializer
 from user_app.models import Address
 from user_app.serializers import UserSerializer 
@@ -110,13 +110,26 @@ class CartSerializer(serializers.ModelSerializer):
 
 #latest
 
+
+class OrderAddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderAddress
+        fields = [
+            'id', 'name', 'house_no', 'city', 'state', 'pin_code',
+            'address_type', 'landmark', 'mobile_number', 'alternate_number'
+        ]
+
+
 class OrderItemSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
+    can_cancel = serializers.SerializerMethodField()
     discount_percentage = serializers.SerializerMethodField()
+    category=serializers.SerializerMethodField()
     
     class Meta:
         model = OrderItem
-        fields = ['id', 'product_name', 'size', 'color', 'quantity', 'original_price', 'discount_amount', 'final_price', 'image','discount_percentage']
+        fields = ['id', 'product_name', 'size', 'color', 'quantity', 'original_price', 'discount_amount', 'final_price', 'image','discount_percentage','status', 'can_cancel', 'cancel_reason',
+            'return_reason','discount_amount','category']
     
     def get_image(self, obj):
         if obj.variant and obj.variant.product.images.exists():
@@ -129,11 +142,25 @@ class OrderItemSerializer(serializers.ModelSerializer):
         if obj.original_price > 0:
             return round((obj.discount_amount / obj.original_price) * 100, 2)
         return 0
+    
+    def get_can_cancel(self, obj):
+        return obj.can_cancel()
+    
+    def get_category(self,obj):
+        if obj.variant and obj.variant.product.category:
+            return{
+                'id':obj.variant.product.category.id,
+                'name':obj.variant.product.category.name
+            }
+        return None
+    
+    
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     user = serializers.SerializerMethodField()
     total_savings = serializers.SerializerMethodField()
+    delivery_address = OrderAddressSerializer(read_only=True)
     
     class Meta:
         model = Order
@@ -141,7 +168,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'id', 'order_number', 'status', 'payment_status', 
             'payment_method', 'subtotal', 'discount_amount',
             'coupon_discount', 'delivery_charges', 'final_total',
-            'total_savings','created_at', 'items', 'user','is_returned', 'return_reason'
+            'total_savings','created_at', 'items', 'user','is_returned', 'return_reason','delivery_address',
         ]
     
     def get_user(self, obj):
@@ -155,6 +182,7 @@ class OrderSerializer(serializers.ModelSerializer):
     
     def get_total_savings(self, obj):
         return obj.discount_amount + obj.coupon_discount
+    
 class AddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address

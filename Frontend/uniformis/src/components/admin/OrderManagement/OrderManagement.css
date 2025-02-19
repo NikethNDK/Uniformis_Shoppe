@@ -36,3 +36,76 @@
     padding-left: 0;
   }
 }
+
+.logo_img01 {
+  max-width: 100%; 
+  width:15rem;
+  height: auto;     
+  margin-top: 0px;
+}
+
+.invoice{
+  text-decoration:underline;
+  margin-top: 5rem;
+  font-size: medium;
+  margin-bottom: 2px;
+
+}
+
+.cancelled-stamp {
+  position: relative;
+  overflow: visible !important;
+}
+
+.cancelled-stamp::after {
+  content: 'CANCELLED';
+  position: absolute;
+  top: 190%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-15deg);
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #EF4444;
+  border: 3px solid #EF4444;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.delivered-stamp {
+  position: relative;
+  overflow: visible !important;
+}
+
+.delivered-stamp::after {
+  content: 'DELIVERED';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-15deg);
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #22C55E;
+  border: 3px solid #22C55E;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.invoice table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.invoice th,
+.invoice td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+
+.invoice th {
+  background-color: #f5f5f5;
+}

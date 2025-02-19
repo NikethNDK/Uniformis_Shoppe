@@ -87,7 +87,7 @@ const Wishlist = () => {
       
       toast.success('Item moved to cart successfully');
     } catch (error) {
-      toast.error('Failed to move item to cart');
+      // toast.error('Failed to move item to cart');
       console.error('Failed to move item to cart:', error);
     }
   };

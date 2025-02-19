@@ -170,7 +170,7 @@ export const removeFromWishlist = createAsyncThunk(
   async ({ item_id }, { rejectWithValue }) => {
     try {
       const response = await apiHelpers.wishlist.removeItem({ item_id });
-      
+      console.log('response while removing the item from wishlist: ',response.data)
       // Check if response exists and has the expected structure
       if (!response) {
         throw new Error("No response received");

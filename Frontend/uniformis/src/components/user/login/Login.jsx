@@ -25,6 +25,7 @@ const Login = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError('')
     try {
         console.log('Attempting login with:', { email, password });
         const response = await axiosInstance.post('/login/', { email, password });
@@ -45,24 +46,26 @@ const Login = () => {
             navigate('/user/homepage');
         }
     } catch (error) {
-        console.error('Login error:', error.response?.data);
-        const errorData = error.response?.data;
+        console.log('Login error:', error);
+        const errorData = error?.response?.data?.message;
+        console.log("errorData ",errorData)
         let errorMessage = 'An error occurred during login';
         
         switch (errorData?.type) {
             case 'VALIDATION_ERROR':
-                errorMessage = errorData.message || 'Please check your credentials';
+                errorMessage = errorData || 'Please check your credentials';
                 break;
             case 'AUTH_ERROR':
-                errorMessage = errorData.message || 'Invalid credentials';
+                errorMessage = errorData || 'Invalid credentials';
                 break;
             case 'FORBIDDEN':
-                errorMessage = errorData.message || 'Your account has been blocked';
+                errorMessage = errorData || 'Your account has been blocked';
                 break;
             default:
-                errorMessage = errorData?.message || 'An unexpected error occurred';
+                errorMessage = errorData || 'An unexpected error occurred';
         }
-        toast.error(errorMessage);
+        setError(errorMessage); // Set the error message
+        toast.error(errorData);
     } finally {
         setLoading(false);
     }
@@ -190,20 +193,21 @@ const Login = () => {
                 <div className="form-section">
                     <h2>Welcome Back!</h2>
                     <p>Log in to your account</p>
-
-                    {/* {error && (
-                        <div className="error-message" style={{
-                            color: '#dc3545',
-                            backgroundColor: '#f8d7da',
-                            border: '1px solid #f5c6cb',
-                            borderRadius: '4px',
-                            padding: '10px',
-                            marginBottom: '15px',
-                            textAlign: 'center'
-                        }}>
-                            {error}
-                        </div>
-                    )} */}
+                    
+                    {error && (
+                            <div className="error-message" style={{
+                                color: '#dc3545',
+                                backgroundColor: '#f8d7da',
+                                border: '1px solid #f5c6cb',
+                                borderRadius: '4px',
+                                padding: '10px',
+                                marginTop: '15px',
+                                marginBottom: '15px',
+                                textAlign: 'center'
+                            }}>
+                                {error}
+                            </div>
+                        )}
 
                     <form onSubmit={handleLogin} className="login-form">
                         <div className="input-group">
@@ -225,7 +229,7 @@ const Login = () => {
                                 required
                             />
                         </div>
-
+                        
                         <button type="submit" className="login-button1">
                             Login
                         </button>

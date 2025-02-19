@@ -6,10 +6,10 @@ from django.db.models import Sum, Count,F
 from django.utils import timezone
 from datetime import timedelta
 from django.shortcuts import get_object_or_404
-from .models import Cart, CartItem, Order, OrderItem,Wishlist,WishlistItem,Wallet,WalletTransaction
+from .models import Cart, CartItem, Order, OrderItem,Wishlist,WishlistItem,Wallet,WalletTransaction,OrderAddress
 from offers.models import Coupon,CouponUsage
 from user_app.models import Address
-from .serializers import CartSerializer, OrderSerializer,AddressSerializer,OrderItemSerializer,WishlistSerializer,WalletTransactionSerializer,WalletSerializer
+from .serializers import CartSerializer, OrderSerializer,AddressSerializer,OrderItemSerializer,WishlistSerializer,WalletTransactionSerializer,WalletSerializer,OrderAddressSerializer
 from products.models import ProductSizeColor
 from rest_framework.permissions import IsAdminUser
 from .payment_gateways import client, create_razorpay_order
@@ -340,6 +340,19 @@ class OrderViewSet(viewsets.ModelViewSet):
                         discount_amount=item_discount,
                         final_price=final_price
                     )
+                    OrderAddress.objects.create(
+                        user=user,
+                        order=order,
+                        name=address.name,
+                        house_no=address.house_no,
+                        city=address.city,
+                        state=address.state,
+                        pin_code=address.pin_code,
+                        address_type=address.address_type,
+                        landmark=address.landmark,
+                        mobile_number=address.mobile_number,
+                        alternate_number=address.alternate_number
+                    )
     
                     # Update stock
                     variant = cart_item.variant
@@ -371,6 +384,36 @@ class OrderViewSet(viewsets.ModelViewSet):
                 {'error': "Failed to create order"}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )   
+
+    @action(detail=True, methods=['post'], url_path='cancel-item/(?P<item_id>[^/.]+)')
+    def cancel_item(self, request, pk=None, item_id=None):
+        try:
+            order = self.get_object()
+            item = order.items.get(id=item_id)
+            if not item.can_cancel():
+                return Response(
+                    {'error': 'Item cannot be cancelled'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            reason = request.data.get('reason')
+            if not reason:
+                return Response(
+                    {'error': 'Cancellation reason is required'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            item.process_cancellation(reason)
+            serializer = self.get_serializer(order)
+            return Response(serializer.data)
+        except OrderItem.DoesNotExist:
+            return Response(
+                {'error': 'Item not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
     def calculate_item_discount(self, cart_item):
         now = timezone.now()
@@ -458,51 +501,6 @@ class OrderViewSet(viewsets.ModelViewSet):
             item.variant.save()
 
         return Response({'message': 'Order cancelled successfully'}, status=status.HTTP_200_OK)
-
-    # @action(detail=True, methods=['post'])
-    # def cancel(self, request, pk=None):
-    #     try:
-    #         order = self.get_object()
-
-    #         # Add more detailed validation
-    #         if order.status == 'delivered':
-    #             return Response(
-    #                 {'error': 'Cannot cancel a delivered order'},
-    #                 status=status.HTTP_400_BAD_REQUEST
-    #             )
-
-    #         if order.status == 'cancelled':
-    #             return Response(
-    #                 {'error': 'Order is already cancelled'},
-    #                 status=status.HTTP_400_BAD_REQUEST
-    #             )
-
-    #         # Check if order is within cancellation window (2 days)
-    #         if not order.can_cancel():
-    #             return Response(
-    #                 {'error': 'Order cannot be cancelled. Cancellation is only allowed within 48 hours of placing the order'},
-    #                 status=status.HTTP_400_BAD_REQUEST
-    #             )
-
-    #         # Update order status
-    #         order.status = 'cancelled'
-
-    #         # If payment was already made, mark for refund
-    #         if order.payment_status == 'completed':
-    #             order.payment_status = 'refunded'
-
-    #         order.save()
-
-    #         # Return the updated order data
-    #         serializer = self.get_serializer(order)
-    #         return Response(serializer.data, status=status.HTTP_200_OK)
-
-    #     except Exception as e:
-    #         logger.error(f"Error cancelling order {pk}: {str(e)}")
-    #         return Response(
-    #             {'error': 'Failed to cancel order'},
-    #             status=status.HTTP_500_INTERNAL_SERVER_ERROR
-    #         )
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()

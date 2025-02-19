@@ -469,6 +469,7 @@ class UserProfileView(APIView):
 
     def get(self, request):
         profile, created = UserProfile.objects.get_or_create(user=request.user)
+        print("Profile url: ", request.build_absolute_uri(profile.profile_picture.url))
         return Response({
             'first_name': request.user.first_name,
             'last_name': request.user.last_name,
@@ -704,6 +705,7 @@ class AddressViewSet(viewsets.ModelViewSet):
     serializer_class = AddressSerializer
     permission_classes = [IsAuthenticated]
     
+
     def get_queryset(self):
         return Address.objects.filter(user=self.request.user)
         
