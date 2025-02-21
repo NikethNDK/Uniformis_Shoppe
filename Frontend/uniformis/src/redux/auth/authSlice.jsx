@@ -16,6 +16,8 @@ export const clearAuthData = createAsyncThunk(
   }
 );
 
+
+
 const initialState = {
   user: null,
   isAuthenticated: false,
@@ -29,6 +31,10 @@ const authSlice = createSlice({
       const { user } = action.payload;
       state.user = user;
       state.isAuthenticated = true;
+    },
+    clearAuth(state) {
+      state.user = null;
+      state.isAuthenticated = false;
     },
   },
   extraReducers: (builder) => {

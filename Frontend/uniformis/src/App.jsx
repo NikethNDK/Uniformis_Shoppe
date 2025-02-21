@@ -42,11 +42,14 @@ import { queryClient } from './components/lib/queryClient.js'
 import Wishlist from "./components/user/order/Wishlist.jsx";
 import Wallet from "./components/user/wallet/Wallet.jsx";
 import BannerManagement from "./components/admin/Banner/BannerManagement.jsx";
+
 function App() {
+  
   return (
     <>
      <QueryClientProvider client={queryClient}>
     <ToastContainer />
+    
     <BrowserRouter>
       <Routes>
         {/* Admin routes  */}
@@ -74,6 +77,7 @@ function App() {
       <Route path="/reset-password" element={<ResetPassword />} />
         
         {/* User routes */}
+        
         <Route path='/user' element={<UserLayout/>}>
           <Route path="homepage" element={<ProductDisplay />} />
           <Route path="product/:id" element={<ProductDetail />} />

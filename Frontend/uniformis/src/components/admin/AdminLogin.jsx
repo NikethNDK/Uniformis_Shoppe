@@ -93,14 +93,14 @@ const AdminLogin = () => {
         email,
         password
       });
-      
-      // Check if login was successful
+      console.log("admin login response ",response.data)
+      // Check login was successful
       if (response.data.status === 'success') {
         // Dispatch to Redux store
         dispatch(setAuthData({
           user: {
             ...response.data.user,
-            isAdmin: true // Add flag to distinguish admin users
+            isAdmin: true // to distinguish admin users
           }
         }));
         

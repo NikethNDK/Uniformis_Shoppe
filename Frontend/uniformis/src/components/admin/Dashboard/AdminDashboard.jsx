@@ -55,7 +55,7 @@ const Dashboard = () => {
     fetchDashboardData()
     fetchSalesData()
     fetchRecentOrders()
-  }, []) // Removed unnecessary dependency: reportType
+  }, []) 
 
   const fetchDashboardData = async () => {
     try {
@@ -103,29 +103,35 @@ const Dashboard = () => {
   const fetchSalesData = async () => {
     try {
       setIsLoading(true)
-      const response = await adminAxiosInstance.get(`/orders/sales-report/generate/?type=${reportType}`)
       
-      // Process sales data for pie chart
-      const productData = response.data.products
-      const categoryTotals = productData.reduce((acc, item) => {
-        const category = item.variant__product__category__name
-        acc[category] = (acc[category] || 0) + Number(item.total_sales)
+      // Fetch orders data
+      const ordersResponse = await orderApi.get("/")
+      const orders = ordersResponse.data
+  
+      // Process orders data for pie chart
+      const categoryTotals = orders.reduce((acc, order) => {
+        // Process each item in the order
+        order.items.forEach(item => {
+          const category = item.category.name // Access category name from nested structure
+          const salesAmount = Number(item.final_price) // Use final_price for actual sales amount
+          
+          // Add to category total
+          acc[category] = (acc[category] || 0) + salesAmount
+        })
         return acc
       }, {})
-
+  
+      // Convert the category totals into the format needed for the pie chart
       const pieChartData = Object.entries(categoryTotals).map(([category, sales], index) => ({
         label: category,
         value: sales,
         backgroundColor: `hsl(${index * 60}, 70%, 60%)`,
       }))
-
+  
+      console.log('pieChartData', pieChartData)
       setSalesData(pieChartData)
-
-      // Prepare line chart data based on orders data
-      const ordersResponse = await orderApi.get("/")
-      const orders = ordersResponse.data
-
-      // Group orders by date
+  
+      // Process line chart data
       const salesByDate = orders.reduce((acc, order) => {
         const date = new Date(order.created_at).toLocaleDateString('en-US', {
           year: 'numeric',
@@ -136,7 +142,7 @@ const Dashboard = () => {
         acc[date] = (acc[date] || 0) + Number(order.final_total)
         return acc
       }, {})
-
+  
       // Convert to array and sort by date
       const trendChartData = Object.entries(salesByDate)
         .map(([date, sales]) => ({
@@ -144,7 +150,7 @@ const Dashboard = () => {
           sales
         }))
         .sort((a, b) => new Date(a.date) - new Date(b.date))
-
+  
       setTrendData(trendChartData)
       setIsLoading(false)
     } catch (error) {

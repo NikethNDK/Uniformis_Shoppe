@@ -41,6 +41,7 @@ User = get_user_model()
 
 
 class SignupView(APIView):
+    permission_classes = [AllowAny]
     def post(self, request):
         print("Request: ",request.data)
         serializer = UserSerializer(data=request.data)
@@ -165,6 +166,40 @@ class LoginView(APIView):
                 'message':'Invalid Credentials',
                 'details':{'error':'User not found'}
             },status=status.HTTP_400_BAD_REQUEST)
+        
+
+class TokenRefreshView(SimpleJWTTokenRefreshView):
+    def post(self, request, *args, **kwargs):
+        refresh_token = request.COOKIES.get('refresh_token')
+
+        if not refresh_token:
+            return Response({
+                'type': 'TOKEN_ERROR',
+                'message': 'Refresh token not found'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+        
+        data = {'refresh': refresh_token}
+
+        try:
+            response = super().post(request, data=data, *args, **kwargs)
+            
+            # Set the new access token in cookies
+            response.set_cookie(
+                'access_token',
+                response.data['access'],
+                httponly=True,
+                secure=False,  
+                samesite='Lax'
+            )
+            
+            return response
+        except TokenError as e:
+            return Response({
+                'type': 'TOKEN_ERROR',
+                'message': str(e)
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
 
 # class TokenRefreshView(SimpleJWTTokenRefreshView):
     
@@ -198,38 +233,6 @@ class LoginView(APIView):
 #             }, status=status.HTTP_401_UNAUTHORIZED)
 
 
-class TokenRefreshView(SimpleJWTTokenRefreshView):
-    def post(self, request, *args, **kwargs):
-        refresh_token = request.COOKIES.get('refresh_token')
-
-        if not refresh_token:
-            return Response({
-                'type': 'TOKEN_ERROR',
-                'message': 'Refresh token not found'
-            }, status=status.HTTP_401_UNAUTHORIZED)
-
-        # Instead of modifying request.data directly (which can be unsafe), use a new dictionary
-        data = {'refresh': refresh_token}
-
-        try:
-            response = super().post(request, data=data, *args, **kwargs)
-            
-            # Set the new access token in cookies
-            response.set_cookie(
-                'access_token',
-                response.data['access'],
-                httponly=True,
-                secure=False,  # Set to True in production
-                samesite='Lax'
-            )
-            
-            return response
-        except TokenError as e:
-            return Response({
-                'type': 'TOKEN_ERROR',
-                'message': str(e)
-            }, status=status.HTTP_401_UNAUTHORIZED)
-
 class LogoutView(APIView):
     def post(self, request):
         response = Response({
@@ -244,6 +247,7 @@ class LogoutView(APIView):
         return response
 
 class VerifyOTPView(APIView):
+    permission_classes = [AllowAny]
     def post(self, request):
         user_id = request.data.get('user_id')
         otp_code = request.data.get('otp_code')
@@ -323,6 +327,7 @@ class VerifyOTPView(APIView):
             }, status=status.HTTP_404_NOT_FOUND)
 
 class ResendOTPView(APIView):
+    permission_classes = [AllowAny]
     def post(self, request):
         user_id = request.data.get('user_id')
 
@@ -351,7 +356,7 @@ class ResendOTPView(APIView):
             cache.set(cache_key, cache_data, timeout=120)  # Timeout in 120 seconds (2 minutes)
 
             try:
-                # Send the OTP via email (you can also add SMS logic if needed)
+               
                 send_otp_email(user, otp_code)
             except Exception as e:
                 logger.error(f"Failed to send OTP email: {str(e)}")
@@ -469,11 +474,15 @@ class UserProfileView(APIView):
 
     def get(self, request):
         profile, created = UserProfile.objects.get_or_create(user=request.user)
-        print("Profile url: ", request.build_absolute_uri(profile.profile_picture.url))
+        try:
+            profile_picture_url = request.build_absolute_uri(profile.profile_picture.url) if profile.profile_picture else None
+        except ValueError:  # Handles case where profile_picture is set but file is missing
+            profile_picture_url = None
+            
         return Response({
             'first_name': request.user.first_name,
             'last_name': request.user.last_name,
-            'profile_picture': request.build_absolute_uri(profile.profile_picture.url) if profile.profile_picture else None,
+            'profile_picture': profile_picture_url,
         })
     
     def put(self, request):
@@ -488,44 +497,6 @@ class UserProfileView(APIView):
             'message': 'Profile updated successfully'
         })
   
-    
-@api_view(['DELETE'])
-@permission_classes([IsAuthenticated, IsAdminUser])
-def delete_user(request, user_id):
-    try:
-        user = User.objects.get(id=user_id)
-        user.delete()
-        return Response({'status': 'success'})
-    except User.DoesNotExist:
-        return Response({'status': 'error', 'message': 'User not found'}, status=404)
-
-@api_view(['POST'])
-@permission_classes([IsAdminUser])
-def admin_create_user(request):
-    serializer = UserSerializer(data=request.data)
-    if serializer.is_valid():
-        user = serializer.save()
-        UserProfile.objects.create(user=user)
-        return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-@api_view(['PUT'])
-@permission_classes([IsAdminUser])
-def admin_update_user(request, user_id):  
-    try:
-        user = User.objects.get(id=user_id)
-        serializer = UserSerializer(user, data=request.data, partial=True)
-        
-        if serializer.is_valid():
-            print("Request data:", request.data)
-            user = serializer.save()
-            return Response(UserSerializer(user).data, status=status.HTTP_200_OK) 
-        
-        print("Validation errors:", serializer.errors)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    except User.DoesNotExist:
-        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
-
 def get_csrf_token(request):
     return JsonResponse({'csrfToken': get_token(request)})
 
@@ -590,19 +561,6 @@ def google_login( request):
         # Generate JWT token
         refresh = RefreshToken.for_user(user)
         
-        # Create response with user data
-        
-    #     return Response({
-    #     'user': {
-    #         'id': user.id,
-    #         'first_name': user.first_name,
-    #         'last_name': user.last_name,
-    #         'username': user.username,
-    #         'email': user.email,
-    #     },
-    #     'token': str(refresh.access_token),
-    #     'refresh_token': str(refresh)
-    # }, status=status.HTTP_200_OK)
 
         response = Response({
         'type': 'SUCCESS',
@@ -645,19 +603,7 @@ def google_login( request):
             'message': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    # except ValueError as e:
-    #     # Token validation failed
-    #     return Response(
-    #         {'error': {'commonError': 'Invalid Google token'}},
-    #         status=status.HTTP_400_BAD_REQUEST
-    #     )
-    # except Exception as e:
-    #     # Handle other exceptions
-    #     return Response(
-    #         {'error': {'commonError': str(e)}},
-    #         status=status.HTTP_500_INTERNAL_SERVER_ERROR
-    #     )
-    
+
 @api_view(['GET', 'PUT'])
 @permission_classes([IsAuthenticated])
 def profile_view(request):

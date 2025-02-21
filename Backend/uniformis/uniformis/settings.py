@@ -109,8 +109,8 @@ GOOGLE_CLIENT_ID =config('google_id')
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
         'APP': {
-            'client_id': '447562974245-n3dkhp35abet7aqdvfqv8flgkd39nai0.apps.googleusercontent.com',
-            'secret': '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',
+            'client_id': config('google_id'),
+            'secret': config('google_id'),
             'key': ''
         },
         'SCOPE': [

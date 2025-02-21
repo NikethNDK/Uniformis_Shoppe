@@ -363,7 +363,113 @@ const CheckoutPage = () => {
   };
   
 
-  const handlePlaceOrder = async () => {
+//   const handlePlaceOrder = async () => {
+//   if (!selectedAddress) {
+//     toast.error("Please select a delivery address");
+//     return;
+//   }
+
+//   try {
+//     setLoading(true);
+
+//     if (paymentMethod === 'card') {
+//       // Check if Razorpay is loaded
+//       if (typeof window.Razorpay === 'undefined') {
+//         toast.error("Payment gateway is not loaded. Please try again later.");
+//         return;
+//       }
+
+//       console.log('Creating Razorpay order...');
+//       const razorpayOrderRes = await axiosInstance.post('/orders/create_razorpay_order/');
+//       console.log('Razorpay order response:', razorpayOrderRes.data);
+      
+//       const orderData = razorpayOrderRes.data?.razorpay_order?.amount;
+//       console.log('orderdata: ',orderData)
+//       // Move handlePaymentSuccess outside of options to avoid closure issues
+//       const handlePaymentSuccess = async (paymentResponse) => {
+//         try {
+//           console.log('Handling payment success:', paymentResponse);
+//           const response = await axiosInstance.post('/orders/orders/create_from_cart/', {
+//             address_id: selectedAddress,
+//             payment_method: paymentMethod,
+//             payment_id: paymentResponse.razorpay_payment_id,
+//             razorpay_order_id: paymentResponse.razorpay_order_id,
+//             signature: paymentResponse.razorpay_signature
+//           });
+          
+//           console.log('Order creation response:', response.data);
+//           toast.success("Order placed successfully!");
+//           navigate("/user/trackorder");
+//         } catch (error) {
+//           console.error('Error creating order:', error);
+//           toast.error(error.response?.data?.error || "Failed to create order");
+//         } finally {
+//           setLoading(false);
+//         }
+//       };
+
+//       const options = {
+//         key: 'rzp_test_MIlvGi78yuccr2', // Move key to environment variable
+//         amount: orderData,
+//         currency: orderData.currency,
+//         name: "Uniformis Shoppe",
+//         description: "Payment for your order",
+//         order_id: orderData.id,
+//         prefill: {
+//           name: "Customer Name",
+//           email: "customer@example.com",
+//           contact: "9633134666"
+//         },
+//         handler: handlePaymentSuccess,
+//         modal: {
+//           ondismiss: function() {
+//             console.log('Payment modal closed');
+//             setLoading(false);
+//           }
+//         },
+//         theme: {
+//           color: "#3399cc"
+//         }
+//       };
+
+//       console.log('Initializing Razorpay with options:', options);
+//       const rzp = new window.Razorpay(options);
+      
+//       // Add error handling for Razorpay
+//       rzp.on('payment.failed', function(response) {
+//         console.error('Payment failed:', response.error);
+//         toast.error(response.error.description || "Payment failed");
+//         setLoading(false);
+//       });
+
+//       console.log('Opening Razorpay modal...');
+//       rzp.open();
+//     } else {
+//       // Handle COD payment
+//       try {
+//         const response = await axiosInstance.post('/orders/orders/create_from_cart/', {
+//           address_id: selectedAddress,
+//           payment_method: paymentMethod,
+//           coupon_code: appliedCoupon ? appliedCoupon.code : null,
+//         });
+        
+//         console.log('COD order creation response:', response.data);
+//         toast.success("Order placed successfully!");
+//         navigate("/user/trackorder");
+//       } catch (error) {
+//         console.error('Error creating COD order:', error);
+//         toast.error(error.response?.data?.error || "Failed to create order");
+//       }
+//     }
+//   } catch (error) {
+//     console.error('Order creation error:', error);
+//     toast.error(error.response?.data?.error || "Failed to place order");
+//   } finally {
+//     setLoading(false);
+//   }
+// };
+
+const handlePlaceOrder = async () => {
   if (!selectedAddress) {
     toast.error("Please select a delivery address");
     return;
@@ -373,19 +479,14 @@ const CheckoutPage = () => {
     setLoading(true);
 
     if (paymentMethod === 'card') {
-      // Check if Razorpay is loaded
-      if (typeof window.Razorpay === 'undefined') {
-        toast.error("Payment gateway is not loaded. Please try again later.");
-        return;
-      }
-
-      console.log('Creating Razorpay order...');
-      const razorpayOrderRes = await axiosInstance.post('/orders/create_razorpay_order/');
-      console.log('Razorpay order response:', razorpayOrderRes.data);
+      // Create Razorpay order with coupon if applied
+      const razorpayOrderRes = await axiosInstance.post('/orders/create_razorpay_order/', {
+        coupon_code: appliedCoupon ? appliedCoupon.code : null
+      });
       
-      const orderData = razorpayOrderRes.data;
-
-      // Move handlePaymentSuccess outside of options to avoid closure issues
+      // Correctly access the Razorpay order data
+      const orderData = razorpayOrderRes.data.razorpay_order;
+      
       const handlePaymentSuccess = async (paymentResponse) => {
         try {
           console.log('Handling payment success:', paymentResponse);
@@ -394,7 +495,8 @@ const CheckoutPage = () => {
             payment_method: paymentMethod,
             payment_id: paymentResponse.razorpay_payment_id,
             razorpay_order_id: paymentResponse.razorpay_order_id,
-            signature: paymentResponse.razorpay_signature
+            signature: paymentResponse.razorpay_signature,
+            coupon_code: appliedCoupon ? appliedCoupon.code : null  // Include coupon code
           });
           
           console.log('Order creation response:', response.data);
@@ -409,8 +511,8 @@ const CheckoutPage = () => {
       };
 
       const options = {
-        key: 'rzp_test_MIlvGi78yuccr2', // Move key to environment variable
-        amount: orderData.amount*100,
+        key: 'rzp_test_MIlvGi78yuccr2',
+        amount: orderData.amount,  // Use amount directly from orderData
         currency: orderData.currency,
         name: "Uniformis Shoppe",
         description: "Payment for your order",
@@ -435,7 +537,6 @@ const CheckoutPage = () => {
       console.log('Initializing Razorpay with options:', options);
       const rzp = new window.Razorpay(options);
       
-      // Add error handling for Razorpay
       rzp.on('payment.failed', function(response) {
         console.error('Payment failed:', response.error);
         toast.error(response.error.description || "Payment failed");

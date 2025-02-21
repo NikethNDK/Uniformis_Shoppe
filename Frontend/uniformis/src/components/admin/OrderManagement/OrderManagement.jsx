@@ -126,19 +126,47 @@ export default function AdminOrderManagement() {
 
   const handleRefund = async (orderId, itemId = null) => {
     try {
+      setUpdatingStatus(orderId);
+      
       if (itemId) {
-        await orderApi.post(`/${orderId}/refund-item/${itemId}/`);
+        // For individual item refund
+        await orderApi.post(`${orderId}/refund-item/${itemId}/`);
         toast.success("Item refund initiated successfully");
       } else {
-        await orderApi.post(`/${orderId}/refund/`);
+        // For full order refund
+        await orderApi.post(`${orderId}/refund/`);
         toast.success("Order refund initiated successfully");
       }
-      fetchOrders();
+      
+      // Refresh orders after refund
+      await fetchOrders();
+      
+      // Reset states
       setRefundConfirmationOpen(false);
+      setOrderToRefund(null);
+      
     } catch (error) {
-      toast.error("Failed to initiate refund");
+      console.error("Refund error:", error);
+      toast.error(error.response?.data?.error || "Failed to initiate refund");
+    } finally {
+      setUpdatingStatus(null);
     }
   };
+  // const handleRefund = async (orderId, itemId = null) => {
+  //   try {
+  //     if (itemId) {
+  //       await orderApi.post(`/${orderId}/refund-item/${itemId}/`);
+  //       toast.success("Item refund initiated successfully");
+  //     } else {
+  //       await orderApi.post(`/${orderId}/refund/`);
+  //       toast.success("Order refund initiated successfully");
+  //     }
+  //     fetchOrders();
+  //     setRefundConfirmationOpen(false);
+  //   } catch (error) {
+  //     toast.error("Failed to initiate refund");
+  //   }
+  // };
 
   const filteredOrders = orders.filter((order) => {
     const matchesSearch = order.order_number
@@ -463,54 +491,54 @@ export default function AdminOrderManagement() {
                                 Order Items
                               </h3>
                               <div className="grid gap-4">
-                                {order.items?.map((item) => (
-                                  <div
-                                    key={item.id}
-                                    className="flex items-center gap-4 bg-background rounded-lg border p-4"
-                                  >
-                                    <img
-                                      src={item.image || "/placeholder.svg"}
-                                      alt={item.product_name}
-                                      className="h-24 w-24 rounded-md object-cover"
-                                    />
-                                    <div className="flex-1 min-w-0">
-                                      <h4 className="font-medium text-lg truncate">
-                                        {item.product_name}
-                                      </h4>
-                                      <div className="mt-1 text-sm text-muted-foreground space-y-1">
-                                        <p>Size: {item.size}</p>
-                                        <p>Color: {item.color}</p>
-                                        <p>Quantity: {item.quantity}</p>
-                                      </div>
-                                    </div>
-                                    <div className="text-right space-y-1">
-                                      <p className="text-sm text-muted-foreground">
-                                        Original: ₹{item.original_price}
-                                      </p>
-                                      <p className="text-sm text-green-600">
-                                        Discount: ₹{item.discount_amount} (
-                                        {item.discount_percentage}%)
-                                      </p>
-                                      <p className="font-medium">
-                                        Final Price: ₹{item.final_price}
-                                      </p>
-                                      {item.status !== "cancelled" &&
-                                        order.payment_method !== "cod" && (
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              setOrderToRefund(order);
-                                              setRefundConfirmationOpen(true);
-                                            }}
-                                          >
-                                            Refund Item
-                                          </Button>
-                                        )}
-                                    </div>
-                                  </div>
-                                ))}
+                              {order.items?.map((item) => (
+    <div
+      key={item.id}
+      className="flex items-center gap-4 bg-background rounded-lg border p-4"
+    >
+      <img
+        src={item.image || "/placeholder.svg"}
+        alt={item.product_name}
+        className="h-24 w-24 rounded-md object-cover"
+      />
+      <div className="flex-1 min-w-0">
+        <h4 className="font-medium text-lg truncate">
+          {item.product_name}
+        </h4>
+        <div className="mt-1 text-sm text-muted-foreground space-y-1">
+          <p>Size: {item.size}</p>
+          <p>Color: {item.color}</p>
+          <p>Quantity: {item.quantity}</p>
+          <p>Status: {item.status}</p>
+        </div>
+      </div>
+      <div className="text-right space-y-1">
+        <p className="text-sm text-muted-foreground">
+          Original: ₹{item.original_price}
+        </p>
+        <p className="text-sm text-green-600">
+          Discount: ₹{item.discount_amount} ({item.discount_percentage}%)
+        </p>
+        <p className="font-medium">
+          Final Price: ₹{item.final_price}
+        </p>
+        {item.status === "cancelled" && 
+         order.payment_method !== "cod" && 
+         order.payment_status !== "refunded" && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleRefund(order.id, item.id);
+            }}
+          >
+            Refund Item
+          </Button>
+        )}
+      </div>
+    </div>
+  ))}
                               </div>
                             </div>
                           </div>

@@ -31,6 +31,7 @@ from reportlab.lib.pagesizes import letter
 from django.http import FileResponse
 import json
 from django.db import IntegrityError
+from decimal import Decimal
 
 
 logger = logging.getLogger(__name__)
@@ -213,12 +214,221 @@ class WishlistViewSet(viewsets.ModelViewSet):
 
 
 
+# class OrderViewSet(viewsets.ModelViewSet):
+#     serializer_class = OrderSerializer
+#     permission_classes = [IsAuthenticated]
+
+#     def get_queryset(self):
+#         return Order.objects.filter(user=self.request.user)
+
+#     @action(detail=False, methods=['post'], url_path='create_razorpay_order')
+#     def create_razorpay_order(self, request):
+#         try:
+#             logger.info("Creating Razorpay order for user: %s", request.user)
+#             cart = get_object_or_404(Cart, user=request.user)
+            
+#             if not cart.items.exists():
+#                 return Response(
+#                     {'error': 'Cart is empty'},
+#                     status=status.HTTP_400_BAD_REQUEST
+#                 )
+                
+#             total_amount = cart.get_total_price()
+#             razorpay_order = create_razorpay_order(total_amount)
+#             return Response(razorpay_order)
+#         except Exception as e:
+#             logger.error("Error creating Razorpay order: %s", str(e))
+#             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+#     @action(detail=False, methods=['post'])
+#     def create_from_cart(self, request):
+#         try:
+#             user = self.request.user
+#             cart = get_object_or_404(Cart, user=user)
+            
+#             if not cart.items.exists():
+#                 return Response(
+#                     {'error': 'Cart is empty'},
+#                     status=status.HTTP_400_BAD_REQUEST
+#                 )
+    
+#             address_id = request.data.get('address_id')
+#             payment_method = request.data.get('payment_method')
+#             coupon_code = request.data.get('coupon_code')
+    
+#             # Validate address
+#             try:
+#                 address = Address.objects.get(id=address_id, user=user)
+#             except Address.DoesNotExist:
+#                 return Response(
+#                     {'error': 'Invalid address'},
+#                     status=status.HTTP_400_BAD_REQUEST
+#                 )
+    
+#             # Calculate totals
+#             subtotal = cart.get_total_price()
+#             final_total = subtotal
+#             total_discount = 0
+#             coupon_discount = 0
+#             coupon = None
+    
+#             # Apply coupon if provided
+#             if coupon_code:
+#                 try:
+#                     coupon = Coupon.objects.get(
+#                         code=coupon_code,
+#                         is_active=True,
+#                         valid_from__lte=timezone.now(),
+#                         valid_until__gte=timezone.now()
+#                     )
+#                     if subtotal >= coupon.minimum_purchase:
+#                         coupon_discount = (subtotal * coupon.discount_percentage) / 100
+#                         final_total -= coupon_discount
+#                 except Coupon.DoesNotExist:
+#                     return Response(
+#                         {'error': 'Invalid coupon code'},
+#                         status=status.HTTP_400_BAD_REQUEST
+#                     )
+                    
+#             # Verify Razorpay payment if card payment
+#             if payment_method == 'card':
+#                 payment_data = {
+#                     'razorpay_payment_id': request.data.get('payment_id'),
+#                     'razorpay_order_id': request.data.get('razorpay_order_id'),
+#                     'razorpay_signature': request.data.get('signature')
+#                 }
+                
+#                 try:
+#                     client.utility.verify_payment_signature(payment_data)
+#                 except razorpay.errors.SignatureVerificationError:
+#                     return Response(
+#                         {'error': 'Invalid payment signature'}, 
+#                         status=status.HTTP_400_BAD_REQUEST
+#                     )
+    
+#             # Create order and items in a transaction
+#             with transaction.atomic():
+#                 # Create order
+#                 order = Order.objects.create(
+#                     user=user,
+#                     address=address,
+#                     payment_method=payment_method,
+#                     subtotal=subtotal,
+#                     discount_amount=total_discount,
+#                     coupon_discount=coupon_discount,
+#                     coupon=coupon,
+#                     final_total=final_total,
+#                     delivery_charges=0,
+#                     payment_status='completed' if payment_method == 'card' else 'pending'
+#                 )
+    
+#                 # Create order items and update stock
+#                 for cart_item in cart.items.all():
+#                     # Calculate item discount
+#                     original_price = cart_item.variant.price * cart_item.quantity
+#                     item_discount = self.calculate_item_discount(cart_item)
+#                     final_price = original_price - item_discount
+#                     total_discount += item_discount
+    
+#                     OrderItem.objects.create(
+#                         order=order,
+#                         variant=cart_item.variant,
+#                         product_name=cart_item.variant.product.name,
+#                         size=cart_item.variant.size.name,
+#                         color=cart_item.variant.color.name,
+#                         quantity=cart_item.quantity,
+#                         original_price=original_price,
+#                         discount_amount=item_discount,
+#                         final_price=final_price
+#                     )
+#                     OrderAddress.objects.create(
+#                         user=user,
+#                         order=order,
+#                         name=address.name,
+#                         house_no=address.house_no,
+#                         city=address.city,
+#                         state=address.state,
+#                         pin_code=address.pin_code,
+#                         address_type=address.address_type,
+#                         landmark=address.landmark,
+#                         mobile_number=address.mobile_number,
+#                         alternate_number=address.alternate_number
+#                     )
+    
+#                     # Update stock
+#                     variant = cart_item.variant
+#                     if variant.stock_quantity < cart_item.quantity:
+#                         raise ValidationError(f"Not enough stock for {variant.product.name}")
+#                     variant.stock_quantity -= cart_item.quantity
+#                     variant.save()
+    
+#                 # Update order with final amounts
+#                 order.discount_amount = total_discount
+#                 order.final_total = subtotal - total_discount - coupon_discount
+#                 order.save()
+    
+#                 # Create coupon usage record if applicable
+#                 if coupon:
+#                     CouponUsage.objects.create(coupon=coupon, user=user)
+    
+#                 # Clear cart
+#                 cart.items.all().delete()
+    
+#                 serializer = self.get_serializer(order)
+#                 return Response(serializer.data, status=status.HTTP_201_CREATED)
+                
+#         except ValidationError as e:
+#             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+#         except Exception as e:
+#             logger.error("Error creating order: %s", str(e))
+#             return Response(
+#                 {'error': "Failed to create order"}, 
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#             )   
+
 class OrderViewSet(viewsets.ModelViewSet):
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         return Order.objects.filter(user=self.request.user)
+
+    def calculate_final_amount(self, cart, coupon_code=None):
+        """
+        Calculate final amount including all discounts and coupons
+        """
+        subtotal = cart.get_total_price()
+        final_total = subtotal
+        coupon_discount = 0
+        total_discount = 0
+
+        # Calculate item-level discounts
+        for cart_item in cart.items.all():
+            total_discount += self.calculate_item_discount(cart_item)
+
+        final_total = subtotal - total_discount
+
+        # Apply coupon if provided
+        if coupon_code:
+            try:
+                coupon = Coupon.objects.get(
+                    code=coupon_code,
+                    is_active=True,
+                    valid_from__lte=timezone.now(),
+                    valid_until__gte=timezone.now()
+                )
+                if subtotal >= coupon.minimum_purchase:
+                    coupon_discount = (final_total * coupon.discount_percentage) / 100
+                    final_total -= coupon_discount
+            except Coupon.DoesNotExist:
+                pass
+
+        return {
+            'subtotal': subtotal,
+            'total_discount': total_discount,
+            'coupon_discount': coupon_discount,
+            'final_total': final_total
+        }
 
     @action(detail=False, methods=['post'], url_path='create_razorpay_order')
     def create_razorpay_order(self, request):
@@ -231,30 +441,44 @@ class OrderViewSet(viewsets.ModelViewSet):
                     {'error': 'Cart is empty'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-                
-            total_amount = cart.get_total_price()
-            razorpay_order = create_razorpay_order(total_amount)
-            return Response(razorpay_order)
+
+            # Calculate final amount including all discounts
+            coupon_code = request.data.get('coupon_code')
+            amounts = self.calculate_final_amount(cart, coupon_code)
+            
+            # Create Razorpay order with final amount
+            razorpay_order = create_razorpay_order(amounts['final_total'])
+            
+            # Include amount details in response
+            response_data = {
+                'razorpay_order': razorpay_order,
+                'amount_details': amounts
+            }
+            
+            return Response(response_data)
         except Exception as e:
             logger.error("Error creating Razorpay order: %s", str(e))
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=False, methods=['post'])
     def create_from_cart(self, request):
         try:
             user = self.request.user
             cart = get_object_or_404(Cart, user=user)
-            
+
             if not cart.items.exists():
                 return Response(
                     {'error': 'Cart is empty'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-    
+
             address_id = request.data.get('address_id')
             payment_method = request.data.get('payment_method')
             coupon_code = request.data.get('coupon_code')
-    
+
             # Validate address
             try:
                 address = Address.objects.get(id=address_id, user=user)
@@ -263,15 +487,28 @@ class OrderViewSet(viewsets.ModelViewSet):
                     {'error': 'Invalid address'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-    
-            # Calculate totals
-            subtotal = cart.get_total_price()
-            final_total = subtotal
-            total_discount = 0
-            coupon_discount = 0
+
+            # Calculate all amounts upfront
+            amounts = self.calculate_final_amount(cart, coupon_code)
+
+            # Verify Razorpay payment if card payment
+            if payment_method == 'card':
+                payment_data = {
+                    'razorpay_payment_id': request.data.get('payment_id'),
+                    'razorpay_order_id': request.data.get('razorpay_order_id'),
+                    'razorpay_signature': request.data.get('signature')
+                }
+
+                try:
+                    client.utility.verify_payment_signature(payment_data)
+                except razorpay.errors.SignatureVerificationError:
+                    return Response(
+                        {'error': 'Invalid payment signature'}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            # Get coupon if provided
             coupon = None
-    
-            # Apply coupon if provided
             if coupon_code:
                 try:
                     coupon = Coupon.objects.get(
@@ -280,55 +517,50 @@ class OrderViewSet(viewsets.ModelViewSet):
                         valid_from__lte=timezone.now(),
                         valid_until__gte=timezone.now()
                     )
-                    if subtotal >= coupon.minimum_purchase:
-                        coupon_discount = (subtotal * coupon.discount_percentage) / 100
-                        final_total -= coupon_discount
                 except Coupon.DoesNotExist:
                     return Response(
                         {'error': 'Invalid coupon code'},
                         status=status.HTTP_400_BAD_REQUEST
                     )
-                    
-            # Verify Razorpay payment if card payment
-            if payment_method == 'card':
-                payment_data = {
-                    'razorpay_payment_id': request.data.get('payment_id'),
-                    'razorpay_order_id': request.data.get('razorpay_order_id'),
-                    'razorpay_signature': request.data.get('signature')
-                }
-                
-                try:
-                    client.utility.verify_payment_signature(payment_data)
-                except razorpay.errors.SignatureVerificationError:
-                    return Response(
-                        {'error': 'Invalid payment signature'}, 
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-    
+
             # Create order and items in a transaction
             with transaction.atomic():
-                # Create order
+                # Create order with pre-calculated amounts
                 order = Order.objects.create(
                     user=user,
                     address=address,
                     payment_method=payment_method,
-                    subtotal=subtotal,
-                    discount_amount=total_discount,
-                    coupon_discount=coupon_discount,
+                    subtotal=amounts['subtotal'],
+                    discount_amount=amounts['total_discount'],
+                    coupon_discount=amounts['coupon_discount'],
                     coupon=coupon,
-                    final_total=final_total,
+                    final_total=amounts['final_total'],
                     delivery_charges=0,
                     payment_status='completed' if payment_method == 'card' else 'pending'
                 )
-    
+
+                # Create order address ONCE, outside the loop
+                OrderAddress.objects.create(
+                    user=user,
+                    order=order,
+                    name=address.name,
+                    house_no=address.house_no,
+                    city=address.city,
+                    state=address.state,
+                    pin_code=address.pin_code,
+                    address_type=address.address_type,
+                    landmark=address.landmark,
+                    mobile_number=address.mobile_number,
+                    alternate_number=address.alternate_number
+                )
+
                 # Create order items and update stock
                 for cart_item in cart.items.all():
                     # Calculate item discount
                     original_price = cart_item.variant.price * cart_item.quantity
                     item_discount = self.calculate_item_discount(cart_item)
                     final_price = original_price - item_discount
-                    total_discount += item_discount
-    
+
                     OrderItem.objects.create(
                         order=order,
                         variant=cart_item.variant,
@@ -340,42 +572,24 @@ class OrderViewSet(viewsets.ModelViewSet):
                         discount_amount=item_discount,
                         final_price=final_price
                     )
-                    OrderAddress.objects.create(
-                        user=user,
-                        order=order,
-                        name=address.name,
-                        house_no=address.house_no,
-                        city=address.city,
-                        state=address.state,
-                        pin_code=address.pin_code,
-                        address_type=address.address_type,
-                        landmark=address.landmark,
-                        mobile_number=address.mobile_number,
-                        alternate_number=address.alternate_number
-                    )
-    
+
                     # Update stock
                     variant = cart_item.variant
                     if variant.stock_quantity < cart_item.quantity:
                         raise ValidationError(f"Not enough stock for {variant.product.name}")
                     variant.stock_quantity -= cart_item.quantity
                     variant.save()
-    
-                # Update order with final amounts
-                order.discount_amount = total_discount
-                order.final_total = subtotal - total_discount - coupon_discount
-                order.save()
-    
+
                 # Create coupon usage record if applicable
                 if coupon:
                     CouponUsage.objects.create(coupon=coupon, user=user)
-    
+
                 # Clear cart
                 cart.items.all().delete()
-    
+
                 serializer = self.get_serializer(order)
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
-                
+
         except ValidationError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
@@ -383,7 +597,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response(
                 {'error': "Failed to create order"}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )   
+            )
 
     @action(detail=True, methods=['post'], url_path='cancel-item/(?P<item_id>[^/.]+)')
     def cancel_item(self, request, pk=None, item_id=None):
@@ -553,15 +767,9 @@ class AdminOrderViewSet(viewsets.ModelViewSet):
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
     @action(detail=True, methods=['post'])
     def refund(self, request, pk=None):
         order = self.get_object()
-        # if order.payment_method == 'cod':
-        #     return Response(
-        #         {'error': 'Cannot refund COD orders'},
-        #         status=status.HTTP_400_BAD_REQUEST
-        #     )
         
         if order.payment_status == 'refunded':
             return Response(
@@ -569,7 +777,7 @@ class AdminOrderViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Process the refund
+        # Process full order refund
         wallet, created = Wallet.objects.get_or_create(user=order.user)
         WalletTransaction.objects.create(
             wallet=wallet,
@@ -582,7 +790,98 @@ class AdminOrderViewSet(viewsets.ModelViewSet):
             
         order.payment_status = 'refunded'
         order.save()
-        return Response({'status': 'Refund processed and credited to the wallet'})
+        
+        # Update all items status to refunded
+        order.items.all().update(status='refunded')
+        
+        return Response({'status': 'Full order refund processed and credited to wallet'})
+    
+    @action(detail=True, methods=['post'], url_path='refund-item/(?P<item_id>[^/.]+)')
+    def refund_item(self, request, pk=None, item_id=None):
+        from decimal import Decimal
+        
+        order = self.get_object()
+        
+        try:
+            item = order.items.get(id=item_id)
+        except OrderItem.DoesNotExist:
+            return Response(
+                {'error': 'Item not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        if item.status == 'refunded':
+            return Response(
+                {'error': 'Item is already refunded'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if item.status != 'cancelled':
+            return Response(
+                {'error': 'Only cancelled items can be refunded'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Process item refund
+        wallet, created = Wallet.objects.get_or_create(user=order.user)
+        refund_amount = Decimal(str(item.final_price))  # Convert to Decimal
+        
+        WalletTransaction.objects.create(
+            wallet=wallet,
+            amount=refund_amount,
+            transaction_type='CREDIT',
+            description=f'Refund for item {item.product_name} from order #{order.order_number}'
+        )
+        
+        # Update wallet balance using Decimal
+        wallet.balance += refund_amount
+        wallet.save()
+        
+        # Update item status
+        item.status = 'refunded'
+        item.save()
+        
+        # Check if all items are refunded and update order status accordingly
+        if order.items.exclude(status='refunded').count() == 0:
+            order.payment_status = 'refunded'
+            order.save()
+        
+        return Response({
+            'status': 'Item refund processed and credited to wallet',
+            'refunded_amount': float(refund_amount)  # Convert back to float for JSON response
+        })
+
+    # @action(detail=True, methods=['post'])
+    # def refund(self, request, pk=None):
+    #     order = self.get_object()
+    #     # if order.payment_method == 'cod':
+    #     #     return Response(
+    #     #         {'error': 'Cannot refund COD orders'},
+    #     #         status=status.HTTP_400_BAD_REQUEST
+    #     #     )
+        
+    #     if order.payment_status == 'refunded':
+    #         return Response(
+    #             {'error': 'Order is already refunded'},
+    #             status=status.HTTP_400_BAD_REQUEST
+    #         )
+        
+    #     # Process the refund
+    #     wallet, created = Wallet.objects.get_or_create(user=order.user)
+    #     WalletTransaction.objects.create(
+    #         wallet=wallet,
+    #         amount=order.final_total,
+    #         transaction_type='CREDIT',
+    #         description=f'Refund for order #{order.order_number}'
+    #     )
+    #     wallet.balance += order.final_total
+    #     wallet.save()
+            
+    #     order.payment_status = 'refunded'
+    #     order.save()
+    #     return Response({'status': 'Refund processed and credited to the wallet'})
+
+
     
 @action(detail=False, methods=['post'])
 def razorpay_webhook(self, request):

@@ -5,9 +5,10 @@ from .models import UserProfile,Address
 User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
+    profile_picture = serializers.SerializerMethodField()
     class Meta:
         model = User
-        fields = ('id','first_name', 'last_name', 'username','email','phone_number','password', 'is_active','date_of_birth')
+        fields = ('id','first_name', 'last_name', 'username','email','phone_number','password', 'is_active','date_of_birth', 'profile_picture')
         extra_kwargs = {'password':{'write_only':True},
                         'date_of_birth': {'required': False}
                         }
@@ -15,6 +16,15 @@ class UserSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = User.objects.create_user(**validated_data)
         return user
+    
+    def get_profile_picture(self, obj):
+        try:
+            # Assuming you have a OneToOne relationship between User and UserProfile
+            if hasattr(obj, 'userprofile') and obj.userprofile.profile_picture:
+                return obj.userprofile.profile_picture.url
+        except:
+            pass
+        return None
     
     def update(self, instance, validated_data):
     
