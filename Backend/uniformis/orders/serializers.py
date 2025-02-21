@@ -6,6 +6,7 @@ from user_app.serializers import UserSerializer
 from django.utils import timezone
 from django.db.models import Sum,Count
 
+
 class CartItemSerializer(serializers.ModelSerializer):
     variant = ProductSizeColorSerializer()
     total_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
@@ -162,6 +163,7 @@ class OrderSerializer(serializers.ModelSerializer):
     total_savings = serializers.SerializerMethodField()
     delivery_address = OrderAddressSerializer(read_only=True)
     
+
     class Meta:
         model = Order
         fields = [

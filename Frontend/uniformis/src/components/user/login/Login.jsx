@@ -29,9 +29,10 @@ const Login = () => {
       console.log("Attempting login with:", { email, password });
       const response = await axiosInstance.post("/login/", { email, password });
       console.log("Login response:", response.data);
+      console.log('user deatils response.data.user',response.data.user)
 
       const { type, data, message, details } = response.data;
-      console.log('userdata that is dispatched ',data.user)
+     
 
       if (type === "VERIFICATION_REQUIRED") {
         console.log("Verification required, user_id:", details.user_id);
@@ -39,11 +40,17 @@ const Login = () => {
         setUserId(details.user_id);
         setShowOTPModal(true);
         toast.info("Please verify your email to continue");
-      } else if (type === "SUCCESS") {
+      } 
+
+      else if (type === "SUCCESS") {
+        localStorage.setItem("user",JSON.stringify(data.user))
+        localStorage.setItem("isAuthenticated",true)
+
         dispatch(setAuthData({
             user:data.user,
             isAuthenticated:true
         }));
+
         dispatch(fetchUserProfile());
         toast.success("Login successful!");
         navigate("/user/homepage");
@@ -144,6 +151,8 @@ const Login = () => {
       if (backendResponse.data.type === "SUCCESS") {
         dispatch(setAuthData(backendResponse.data.data));
         dispatch(fetchUserProfile());
+        localStorage.setItem("user",JSON.stringify(backendResponse.data.data))
+        localStorage.setItem("isAuthenticated",true)
         toast.success("Login successful!");
         navigate("/user/homepage");
       } else {

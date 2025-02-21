@@ -665,3 +665,13 @@ class AddressViewSet(viewsets.ModelViewSet):
             {"message": "Address deleted successfully"},
             status=status.HTTP_200_OK
         )
+    
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def check_auth_status(request):
+    """
+    Check if the user is authenticated based on the access token.
+    """
+    user = request.user  # DRF automatically sets user if token is valid
+    return Response({"isAuthenticated": True, "user": {"id": user.id, "username": user.username}})

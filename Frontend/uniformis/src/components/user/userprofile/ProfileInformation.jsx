@@ -7,7 +7,7 @@ import { updateUserProfileDetails,fetchUserProfileDetails } from "../../../redux
 
 export default function ProfileInformation() {
   const dispatch=useDispatch()
-  const { user } = useSelector((state) => state.auth)
+  const  user  = localStorage.getItem('user')
   const { data: profileDetails, isLoading, error } = useSelector((state) => state.profile.profileDetails)
   
  

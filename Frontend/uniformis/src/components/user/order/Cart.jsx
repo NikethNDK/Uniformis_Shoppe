@@ -12,14 +12,17 @@ const CartPage = () => {
   const [localQuantities, setLocalQuantities] = useState({});
   const finalTotal = useSelector(state => state.cart.finalTotal);
   console.log("Final",finalTotal)
+  
+  const loadCart = async () => {
+    try {
+      await dispatch(fetchCart()).unwrap();
+    } catch (error) {
+      console.error('Failed to load cart:', error);
+    }
+  };
+
   useEffect(() => {
-    const loadCart = async () => {
-      try {
-        await dispatch(fetchCart()).unwrap();
-      } catch (error) {
-        console.error('Failed to load cart:', error);
-      }
-    };
+    
     loadCart();
   }, [dispatch]);
 
@@ -38,6 +41,7 @@ const CartPage = () => {
     } catch (error) {
       console.error('Failed to remove item:', error);
     }
+    loadCart()
   };
 
   const handleQuantityChange = (itemId, newQuantity, stockQuantity) => {

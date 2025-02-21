@@ -14,7 +14,12 @@ import { Badge } from "../../components/ui/badge";
 
 export default function Navbar() {
   const [searchQuery, setSearchQuery] = useState("");
-  const { isAuthenticated, user } = useSelector((state) => state.auth);
+
+  const user  = localStorage.getItem('user');
+  const isAuthenticated= localStorage.getItem('isAuthenticated');
+  // const { isAuthenticated, user } = useSelector((state) => state.auth);
+
+
   const { data: profile } = useSelector((state) => state.profile.basicProfile);
   const { itemCount } = useSelector((state) => state.cart);
   const { categories } = useSelector((state) => state.userProducts);
@@ -22,16 +27,17 @@ export default function Navbar() {
   const navigate = useNavigate();
 
   const { items: wishlistItems } = useSelector((state) => state.wishlist);
-
+  console.log("To check the authetication after refresh in the navbar is Authenticted",isAuthenticated)
   useEffect(() => {
     dispatch(fetchProducts());
-    dispatch(fetchCart());
+    dispatch(fetchCart());  
     dispatch(fetchWishlist());
   }, [dispatch]);
 
   const handleLogout = () => {
     dispatch(clearAuthData());
     dispatch(clearProfile());
+    localStorage.clear()
     navigate("/login");
   };
 

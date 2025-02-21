@@ -218,7 +218,7 @@ export const removeFromWishlist = createAsyncThunk(
     } catch (error) {
       // Don't show error toast if it's just an empty wishlist
       if (error.message !== "No response received") {
-        toast.error("Failed to remove item from wishlist");
+        // toast.error("Failed to remove item from wishlist");
       }
       return rejectWithValue({
         message: error.message || "Failed to remove item from wishlist",
@@ -367,8 +367,8 @@ const wishlistSlice = createSlice({
         state.items = action.payload.items || []
         state.totalAmount = action.payload.total_price || 0
         // state.itemCount = action.payload.total_items || 0
-        state.itemCount = action.payload.items.length;
-        state.finalTotal = action.payload.final_total;
+        state.itemCount = action.payload.items.length ||0
+        state.finalTotal = action.payload.final_total ||0;
         state.error = null;
       })
       .addCase(removeFromWishlist.rejected, (state, action) => {

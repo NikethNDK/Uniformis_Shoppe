@@ -4,8 +4,12 @@ from user_app.models import User,Address
 from products.models import Product,ProductSizeColor
 from datetime import timedelta
 from offers.models import Coupon
+from decimal import Decimal
+from django.db import transaction
+from decimal import Decimal
+import logging
 
-
+logger = logging.getLogger(__name__)
 
 class Cart (models.Model):
     user=models.ForeignKey(User, on_delete=models.CASCADE)
@@ -81,9 +85,7 @@ class Order(models.Model):
         ordering = ['-created_at']
 
     def update_status(self, new_status):
-        """
-        Updates the order status.
-        """
+
         if new_status and new_status in dict(self.STATUS_CHOICES):
             self.status = new_status
             self.save()
@@ -101,6 +103,9 @@ class Order(models.Model):
         
         super().save(*args, **kwargs)
 
+    def get_coupon_min_order(self):
+        return self.coupon.minimum_purchase if self.coupon else 0
+
     def can_cancel(self):
         return (
             self.status not in ['delivered', 'cancelled'] and
@@ -110,14 +115,189 @@ class Order(models.Model):
     def get_estimated_delivery(self):
         return self.created_at + timedelta(days=3)
     
+    """Recalculate order totals after item cancellation"""
     def recalculate_totals(self):
-        """Recalculate order totals after item cancellation"""
+       
         active_items = self.items.exclude(status='cancelled')
         
         self.subtotal = sum(item.original_price for item in active_items)
         self.discount_amount = sum(item.discount_amount for item in active_items)
         self.final_total = self.subtotal - self.discount_amount - self.coupon_discount + self.delivery_charges
         self.save()
+
+    
+    """
+    Validates if the order still meets coupon requirements after cancellation
+    and adjusts totals accordingly.
+        """
+    def validate_coupon_after_cancellation(self):
+
+        if not self.coupon:
+            return
+
+        # Get active (non-cancelled) items
+        active_items = self.items.exclude(status='cancelled')
+        
+        # Calculate new subtotal from active items
+        new_subtotal = sum(item.original_price for item in active_items)
+        
+        # Get minimum purchase requirement
+        min_purchase = self.get_coupon_min_order()
+        
+        # If new subtotal is less than minimum purchase, remove coupon
+        if new_subtotal < min_purchase:
+            # Store the previous coupon for reference
+            previous_coupon = self.coupon
+            
+            # Remove coupon and its discount
+            self.coupon = None
+            self.coupon_discount = 0
+            
+            # Recalculate totals without coupon
+            self.recalculate_totals()
+            
+            # Log the coupon removal
+            
+            with transaction.atomic():
+                self.orderlogs.create(
+                    action="coupon_removed",
+                    description=f"Coupon {previous_coupon.code} removed as order total fell below minimum purchase requirement of {min_purchase}"
+                )
+
+
+        """
+        Calculates the correct refund amount for an item, considering both item-level 
+        and order-level (coupon) discounts
+        """
+    def calculate_item_refund_amount(self, item):
+       
+        logger.debug(f"Item original price: {item.original_price}")
+        logger.debug(f"Item discount amount: {item.discount_amount}")
+        logger.debug(f"Item final price: {item.final_price}")
+        logger.debug(f"Order subtotal: {self.subtotal}")
+        logger.debug(f"Order coupon discount: {self.coupon_discount}")
+        
+        # Get remaining items' original prices
+        remaining_items = self.items.exclude(id=item.id).exclude(status__in=['cancelled', 'refunded'])
+        remaining_total = sum(i.original_price for i in remaining_items)
+        
+        logger.debug(f"Remaining total (original prices): {remaining_total}")
+        
+        # Start with item's final price (after item-level discount)
+        refund_amount = Decimal(str(item.final_price))
+        
+        # If there's a coupon discount, calculate item's share
+        if self.coupon and self.coupon_discount > 0:
+            # Calculate percentage based on original price
+            item_percentage = Decimal(str(item.original_price)) / Decimal(str(self.subtotal))
+            logger.debug(f"Item percentage of total order: {item_percentage}")
+            
+            # Calculate item's share of coupon discount
+            item_coupon_discount = Decimal(str(self.coupon_discount)) * item_percentage
+            logger.debug(f"Item's share of coupon discount: {item_coupon_discount}")
+            
+            # If remaining total will be below minimum purchase requirement
+            min_purchase = self.get_coupon_min_order()
+            logger.debug(f"Minimum purchase requirement: {min_purchase}")
+            
+            if remaining_total < min_purchase:
+                # Deduct entire coupon discount
+                logger.debug("Below minimum purchase - deducting entire coupon discount")
+                refund_amount = item.final_price - self.coupon_discount
+            else:
+                # Deduct only this item's portion of coupon discount
+                logger.debug("Above minimum purchase - deducting proportional coupon discount")
+                refund_amount = item.final_price - item_coupon_discount
+        
+        final_refund = max(refund_amount, Decimal('0.00'))
+        logger.debug(f"Final calculated refund amount: {final_refund}")
+        
+        return final_refund
+
+    def handle_item_cancellation(self, item):
+        """
+        Handles the cancellation of an item including coupon validation and stock updates
+        """
+        from decimal import Decimal
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        with transaction.atomic():
+            # Calculate refund amount before making any changes
+            refund_amount = self.calculate_item_refund_amount(item)
+            logger.debug(f"Calculated refund amount: {refund_amount}")
+            
+            # Update item status
+            item.status = 'cancelled'
+            item.cancelled_at = timezone.now()
+            item.refund_amount = refund_amount
+            item.save()
+            
+            # Update stock if applicable
+            if item.variant:
+                item.variant.stock_quantity += item.quantity
+                item.variant.save()
+            
+            # Get remaining active items
+            remaining_items = self.items.exclude(status__in=['cancelled', 'refunded'])
+            new_subtotal = sum(i.original_price for i in remaining_items)
+            
+            # Check if remaining total meets coupon minimum
+            if self.coupon and new_subtotal < self.get_coupon_min_order():
+                logger.debug(f"Removing coupon - remaining total ({new_subtotal}) below minimum ({self.get_coupon_min_order()})")
+                self.coupon = None
+                self.coupon_discount = Decimal('0.00')
+            
+            # Recalculate order totals
+            self.recalculate_totals()
+            
+            return refund_amount
+
+    def recalculate_totals(self):
+        """
+        Recalculates order totals after modifications
+        """
+        from decimal import Decimal
+        
+        # Get active items
+        active_items = self.items.exclude(status__in=['cancelled', 'refunded'])
+        
+        # Calculate totals
+        self.subtotal = sum(item.original_price for item in active_items)
+        self.discount_amount = sum(item.discount_amount for item in active_items)
+        
+        # Calculate final total with all adjustments
+        self.final_total = (
+            self.subtotal 
+            - self.discount_amount  # Item-level discounts
+            - (self.coupon_discount or Decimal('0.00'))  # Coupon discount if any
+            + self.delivery_charges
+        )
+        
+        self.save()
+
+    def process_refund(self, refund_amount, item=None):
+        """
+        Processes the refund to user's wallet
+        """
+        wallet, created = Wallet.objects.get_or_create(user=self.user)
+        
+        description = (
+            f'Refund for item {item.product_name} from order #{self.order_number}'
+            if item else
+            f'Refund for order #{self.order_number}'
+        )
+        
+        WalletTransaction.objects.create(
+            wallet=wallet,
+            amount=refund_amount,
+            transaction_type='CREDIT',
+            description=description
+        )
+        
+        wallet.balance += refund_amount
+        wallet.save()
+
 
 class OrderItem(models.Model):
     STATUS_CHOICES = (

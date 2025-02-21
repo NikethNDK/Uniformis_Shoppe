@@ -8,7 +8,7 @@ import { toast } from "react-toastify"
 const UserSidebar = ({ onImageSelect }) => {
   const location = useLocation()
   const dispatch = useDispatch()
-  const { user } = useSelector((state) => state.auth)
+  const user  = localStorage.getItem('user')
   const { data: profile } = useSelector((state) => state.profile.basicProfile)
 
   const menuItems = [

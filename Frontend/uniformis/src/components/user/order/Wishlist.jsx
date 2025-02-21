@@ -17,15 +17,15 @@ const Wishlist = () => {
   const { items, loading, totalAmount } = useSelector((state) => state.wishlist);
   const [localQuantities, setLocalQuantities] = useState({});
   const finalTotal = useSelector(state => state.wishlist.finalTotal);
-
+  const loadWishlist = async () => {
+    try {
+      await dispatch(fetchWishlist()).unwrap();
+    } catch (error) {
+      console.error('Failed to load wishlist:', error);
+    }
+  };
   useEffect(() => {
-    const loadWishlist = async () => {
-      try {
-        await dispatch(fetchWishlist()).unwrap();
-      } catch (error) {
-        console.error('Failed to load wishlist:', error);
-      }
-    };
+    
     loadWishlist();
   }, [dispatch]);
 
@@ -52,6 +52,7 @@ const Wishlist = () => {
     } catch (error) {
       // Revert the optimistic update if the API call fails
       dispatch(fetchWishlist());
+      loadWishlist()
       // toast.error('Failed to remove item');
       console.error('Failed to remove item:', error);
     }
@@ -84,8 +85,9 @@ const Wishlist = () => {
       // Remove from wishlist
       
       await dispatch(removeFromWishlist({ item_id: item.id })).unwrap();
-      
+      loadWishlist();
       toast.success('Item moved to cart successfully');
+      
     } catch (error) {
       // toast.error('Failed to move item to cart');
       console.error('Failed to move item to cart:', error);

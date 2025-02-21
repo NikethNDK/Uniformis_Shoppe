@@ -54,6 +54,7 @@ class Coupon(models.Model):
     usage_limit = models.IntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    allow_multiple_use = models.BooleanField(default=False, help_text="Allow users to use this coupon multiple times")
 
     def __str__(self):
         return self.code
@@ -69,6 +70,28 @@ class Coupon(models.Model):
         self.clean()
         super().save(*args, **kwargs)
 
+    def is_valid_for_user(self, user):
+        """
+        Check if the coupon is valid for the given user
+        """
+        if not self.is_active:
+            return False, "Coupon is not active"
+            
+        now = timezone.now()
+        if now < self.valid_from:
+            return False, "Coupon is not yet valid"
+        if now > self.valid_until:
+            return False, "Coupon has expired"
+
+        # Check usage limit
+        user_usage = CouponUsage.objects.filter(coupon=self, user=user).count()
+        if not self.allow_multiple_use and user_usage > 0:
+            return False, "Coupon already used"
+        if user_usage >= self.usage_limit:
+            return False, "Usage limit exceeded"
+
+        return True, "Coupon is valid"
+
     class Meta:
         db_table = 'coupon'
 
@@ -76,7 +99,9 @@ class CouponUsage(models.Model):
     coupon = models.ForeignKey(Coupon, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     used_at = models.DateTimeField(auto_now_add=True)
-
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_used = models.BooleanField(default=False)
+    
     class Meta:
         db_table = 'coupon_usage'
         unique_together = ('coupon', 'user')

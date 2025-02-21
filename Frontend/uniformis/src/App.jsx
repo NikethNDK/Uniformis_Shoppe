@@ -42,9 +42,24 @@ import { queryClient } from './components/lib/queryClient.js'
 import Wishlist from "./components/user/order/Wishlist.jsx";
 import Wallet from "./components/user/wallet/Wallet.jsx";
 import BannerManagement from "./components/admin/Banner/BannerManagement.jsx";
+import { useDispatch,useSelector } from "react-redux";
+import { checkAuthStatus } from "./redux/auth/authSlice.jsx";
+import Loading from "./components/ui/Loading.jsx";
+import { useEffect } from "react";
+import { Navigate } from "react-router-dom";
+import ProtectedRoute from "./protectedRoute.jsx";
 
 function App() {
-  
+  const dispatch = useDispatch()
+  // const { isAuthenticated, isLoading } = useSelector((state) => state.auth)
+
+  useEffect(() => {
+    // dispatch(checkAuthStatus())
+  }, [])
+
+  // if (isLoading) {
+  //   return <Loading />
+  // }
   return (
     <>
      <QueryClientProvider client={queryClient}>
@@ -79,7 +94,8 @@ function App() {
         {/* User routes */}
         
         <Route path='/user' element={<UserLayout/>}>
-          <Route path="homepage" element={<ProductDisplay />} />
+          <Route path="homepage" element={<ProtectedRoute><ProductDisplay /> </ProtectedRoute>} />
+          {/* <Route path="homepage" element={isAuthenticated ? <ProductDisplay /> : <Navigate to="/login" />} /> */}
           <Route path="product/:id" element={<ProductDetail />} />
           <Route path="profile-information" element={<ProfileInformation />}/>
           <Route path="address" element={<AddressManagement />} />
@@ -93,14 +109,12 @@ function App() {
         </Route>
 
         <Route path="/category/:id" element={<CategoryPage />} />
-
         <Route path="/user-profile" element={<UserProfile />} />
         {/* <Route path="/home" element={<Home />} /> */}
         <Route path="/signup" element={<Signup />} />
-
         <Route path="/login" element={<Login />} />
+        {/* <Route path="/login" element={isAuthenticated ? <Navigate to="/user/homepage" /> : <Login />} /> */}
         <Route path="/" element={<Login />} />
-        
         <Route path="/defaultadmin" element={<AdminRedirect />} />
       </Routes>
     </BrowserRouter>

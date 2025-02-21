@@ -10,6 +10,7 @@ from .serializers import (
 )
 from rest_framework.decorators import api_view, permission_classes
 from orders.models import Cart
+from .task import cleanup_pending_coupon_usages
 
 class OfferViewSet(viewsets.ModelViewSet):
     serializer_class = OfferSerializer
@@ -134,6 +135,8 @@ def available_coupons(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def apply_coupon(request):
+    cleanup_pending_coupon_usages()
+    
     code = request.data.get('code')
     total_amount = request.data.get('total_amount', 0)
     
@@ -148,21 +151,29 @@ def apply_coupon(request):
             return Response({'error': 'This coupon is not valid at the moment'}, status=400)
             
         # Check if user has already used this coupon
-        if CouponUsage.objects.filter(coupon=coupon, user=request.user).exists():
+        if CouponUsage.objects.filter(coupon=coupon, user=request.user, is_used=True).exists():
             return Response({'error': 'You have already used this coupon'}, status=400)
         
         # Check usage limit
-        if coupon.usage_limit and CouponUsage.objects.filter(coupon=coupon).count() >= coupon.usage_limit:
+        if coupon.usage_limit and CouponUsage.objects.filter(coupon=coupon, is_used=True).count() >= coupon.usage_limit:
             return Response({'error': 'This coupon has reached its usage limit'}, status=400)
         
-        # Check minimum purchase amount if applicable
-        if coupon.minimum_purchase and float(total_amount) < coupon.minimum_purchase:
+        # Check minimum purchase amount
+        if coupon.minimum_purchase and float(total_amount) < float(coupon.minimum_purchase):
             return Response({
                 'error': f'Minimum purchase amount of ₹{coupon.minimum_purchase} required'
             }, status=400)
         
         # Calculate discount
         discount_amount = (float(total_amount) * coupon.discount_percentage) / 100
+        
+        # Create or update coupon usage
+        CouponUsage.objects.update_or_create(
+            coupon=coupon,
+            user=request.user,
+            is_used=False,  # Only get/create pending usage
+            defaults={'created_at': timezone.now()}
+        )
         
         return Response({
             'code': coupon.code,

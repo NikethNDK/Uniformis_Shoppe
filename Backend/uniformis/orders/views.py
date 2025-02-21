@@ -213,179 +213,6 @@ class WishlistViewSet(viewsets.ModelViewSet):
             )
 
 
-
-# class OrderViewSet(viewsets.ModelViewSet):
-#     serializer_class = OrderSerializer
-#     permission_classes = [IsAuthenticated]
-
-#     def get_queryset(self):
-#         return Order.objects.filter(user=self.request.user)
-
-#     @action(detail=False, methods=['post'], url_path='create_razorpay_order')
-#     def create_razorpay_order(self, request):
-#         try:
-#             logger.info("Creating Razorpay order for user: %s", request.user)
-#             cart = get_object_or_404(Cart, user=request.user)
-            
-#             if not cart.items.exists():
-#                 return Response(
-#                     {'error': 'Cart is empty'},
-#                     status=status.HTTP_400_BAD_REQUEST
-#                 )
-                
-#             total_amount = cart.get_total_price()
-#             razorpay_order = create_razorpay_order(total_amount)
-#             return Response(razorpay_order)
-#         except Exception as e:
-#             logger.error("Error creating Razorpay order: %s", str(e))
-#             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-#     @action(detail=False, methods=['post'])
-#     def create_from_cart(self, request):
-#         try:
-#             user = self.request.user
-#             cart = get_object_or_404(Cart, user=user)
-            
-#             if not cart.items.exists():
-#                 return Response(
-#                     {'error': 'Cart is empty'},
-#                     status=status.HTTP_400_BAD_REQUEST
-#                 )
-    
-#             address_id = request.data.get('address_id')
-#             payment_method = request.data.get('payment_method')
-#             coupon_code = request.data.get('coupon_code')
-    
-#             # Validate address
-#             try:
-#                 address = Address.objects.get(id=address_id, user=user)
-#             except Address.DoesNotExist:
-#                 return Response(
-#                     {'error': 'Invalid address'},
-#                     status=status.HTTP_400_BAD_REQUEST
-#                 )
-    
-#             # Calculate totals
-#             subtotal = cart.get_total_price()
-#             final_total = subtotal
-#             total_discount = 0
-#             coupon_discount = 0
-#             coupon = None
-    
-#             # Apply coupon if provided
-#             if coupon_code:
-#                 try:
-#                     coupon = Coupon.objects.get(
-#                         code=coupon_code,
-#                         is_active=True,
-#                         valid_from__lte=timezone.now(),
-#                         valid_until__gte=timezone.now()
-#                     )
-#                     if subtotal >= coupon.minimum_purchase:
-#                         coupon_discount = (subtotal * coupon.discount_percentage) / 100
-#                         final_total -= coupon_discount
-#                 except Coupon.DoesNotExist:
-#                     return Response(
-#                         {'error': 'Invalid coupon code'},
-#                         status=status.HTTP_400_BAD_REQUEST
-#                     )
-                    
-#             # Verify Razorpay payment if card payment
-#             if payment_method == 'card':
-#                 payment_data = {
-#                     'razorpay_payment_id': request.data.get('payment_id'),
-#                     'razorpay_order_id': request.data.get('razorpay_order_id'),
-#                     'razorpay_signature': request.data.get('signature')
-#                 }
-                
-#                 try:
-#                     client.utility.verify_payment_signature(payment_data)
-#                 except razorpay.errors.SignatureVerificationError:
-#                     return Response(
-#                         {'error': 'Invalid payment signature'}, 
-#                         status=status.HTTP_400_BAD_REQUEST
-#                     )
-    
-#             # Create order and items in a transaction
-#             with transaction.atomic():
-#                 # Create order
-#                 order = Order.objects.create(
-#                     user=user,
-#                     address=address,
-#                     payment_method=payment_method,
-#                     subtotal=subtotal,
-#                     discount_amount=total_discount,
-#                     coupon_discount=coupon_discount,
-#                     coupon=coupon,
-#                     final_total=final_total,
-#                     delivery_charges=0,
-#                     payment_status='completed' if payment_method == 'card' else 'pending'
-#                 )
-    
-#                 # Create order items and update stock
-#                 for cart_item in cart.items.all():
-#                     # Calculate item discount
-#                     original_price = cart_item.variant.price * cart_item.quantity
-#                     item_discount = self.calculate_item_discount(cart_item)
-#                     final_price = original_price - item_discount
-#                     total_discount += item_discount
-    
-#                     OrderItem.objects.create(
-#                         order=order,
-#                         variant=cart_item.variant,
-#                         product_name=cart_item.variant.product.name,
-#                         size=cart_item.variant.size.name,
-#                         color=cart_item.variant.color.name,
-#                         quantity=cart_item.quantity,
-#                         original_price=original_price,
-#                         discount_amount=item_discount,
-#                         final_price=final_price
-#                     )
-#                     OrderAddress.objects.create(
-#                         user=user,
-#                         order=order,
-#                         name=address.name,
-#                         house_no=address.house_no,
-#                         city=address.city,
-#                         state=address.state,
-#                         pin_code=address.pin_code,
-#                         address_type=address.address_type,
-#                         landmark=address.landmark,
-#                         mobile_number=address.mobile_number,
-#                         alternate_number=address.alternate_number
-#                     )
-    
-#                     # Update stock
-#                     variant = cart_item.variant
-#                     if variant.stock_quantity < cart_item.quantity:
-#                         raise ValidationError(f"Not enough stock for {variant.product.name}")
-#                     variant.stock_quantity -= cart_item.quantity
-#                     variant.save()
-    
-#                 # Update order with final amounts
-#                 order.discount_amount = total_discount
-#                 order.final_total = subtotal - total_discount - coupon_discount
-#                 order.save()
-    
-#                 # Create coupon usage record if applicable
-#                 if coupon:
-#                     CouponUsage.objects.create(coupon=coupon, user=user)
-    
-#                 # Clear cart
-#                 cart.items.all().delete()
-    
-#                 serializer = self.get_serializer(order)
-#                 return Response(serializer.data, status=status.HTTP_201_CREATED)
-                
-#         except ValidationError as e:
-#             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-#         except Exception as e:
-#             logger.error("Error creating order: %s", str(e))
-#             return Response(
-#                 {'error': "Failed to create order"}, 
-#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
-#             )   
-
 class OrderViewSet(viewsets.ModelViewSet):
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
@@ -417,11 +244,30 @@ class OrderViewSet(viewsets.ModelViewSet):
                     valid_from__lte=timezone.now(),
                     valid_until__gte=timezone.now()
                 )
+                
+                # Check coupon usage limit
+                total_usage_count = CouponUsage.objects.filter(coupon=coupon, is_used=True).count()
+                if coupon.usage_limit and total_usage_count >= coupon.usage_limit:
+                    raise ValidationError('This coupon has reached its usage limit')
+
+                # For single-use coupons, check if user has already used it
+                user_usage_count = CouponUsage.objects.filter(
+                    coupon=coupon, 
+                    user=self.request.user, 
+                    is_used=True
+                ).count()
+                
+                if not coupon.allow_multiple_use and user_usage_count > 0:
+                    raise ValidationError('You have already used this coupon')
+                
                 if subtotal >= coupon.minimum_purchase:
                     coupon_discount = (final_total * coupon.discount_percentage) / 100
                     final_total -= coupon_discount
+                else:
+                    raise ValidationError(f'Minimum purchase amount of ₹{coupon.minimum_purchase} required')
+                    
             except Coupon.DoesNotExist:
-                pass
+                raise ValidationError('Invalid coupon code')
 
         return {
             'subtotal': subtotal,
@@ -429,6 +275,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             'coupon_discount': coupon_discount,
             'final_total': final_total
         }
+
 
     @action(detail=False, methods=['post'], url_path='create_razorpay_order')
     def create_razorpay_order(self, request):
@@ -511,12 +358,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             coupon = None
             if coupon_code:
                 try:
-                    coupon = Coupon.objects.get(
-                        code=coupon_code,
-                        is_active=True,
-                        valid_from__lte=timezone.now(),
-                        valid_until__gte=timezone.now()
-                    )
+                    coupon = Coupon.objects.get(code=coupon_code)
                 except Coupon.DoesNotExist:
                     return Response(
                         {'error': 'Invalid coupon code'},
@@ -539,7 +381,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                     payment_status='completed' if payment_method == 'card' else 'pending'
                 )
 
-                # Create order address ONCE, outside the loop
+                # Create order address 
                 OrderAddress.objects.create(
                     user=user,
                     order=order,
@@ -582,7 +424,25 @@ class OrderViewSet(viewsets.ModelViewSet):
 
                 # Create coupon usage record if applicable
                 if coupon:
-                    CouponUsage.objects.create(coupon=coupon, user=user)
+                    # Mark any pending usage as used
+                    pending_usage = CouponUsage.objects.filter(
+                        coupon=coupon,
+                        user=user,
+                        is_used=False
+                    ).first()
+                    
+                    if pending_usage:
+                        pending_usage.is_used = True
+                        pending_usage.used_at = timezone.now()
+                        pending_usage.save()
+                    else:
+                        # Create new usage record if none pending
+                        CouponUsage.objects.create(
+                            coupon=coupon,
+                            user=user,
+                            is_used=True,
+                            used_at=timezone.now()
+                        )
 
                 # Clear cart
                 cart.items.all().delete()
@@ -767,6 +627,7 @@ class AdminOrderViewSet(viewsets.ModelViewSet):
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
     @action(detail=True, methods=['post'])
     def refund(self, request, pk=None):
         order = self.get_object()
@@ -794,14 +655,15 @@ class AdminOrderViewSet(viewsets.ModelViewSet):
         # Update all items status to refunded
         order.items.all().update(status='refunded')
         
+        # Validate and adjust coupon if needed
+        order.validate_coupon_after_cancellation()
+        
         return Response({'status': 'Full order refund processed and credited to wallet'})
     
     @action(detail=True, methods=['post'], url_path='refund-item/(?P<item_id>[^/.]+)')
     def refund_item(self, request, pk=None, item_id=None):
-        from decimal import Decimal
-        
         order = self.get_object()
-        
+
         try:
             item = order.items.get(id=item_id)
         except OrderItem.DoesNotExist:
@@ -809,47 +671,135 @@ class AdminOrderViewSet(viewsets.ModelViewSet):
                 {'error': 'Item not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
-        
+
         if item.status == 'refunded':
             return Response(
                 {'error': 'Item is already refunded'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         if item.status != 'cancelled':
             return Response(
                 {'error': 'Only cancelled items can be refunded'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        # Process item refund
-        wallet, created = Wallet.objects.get_or_create(user=order.user)
-        refund_amount = Decimal(str(item.final_price))  # Convert to Decimal
-        
-        WalletTransaction.objects.create(
-            wallet=wallet,
-            amount=refund_amount,
-            transaction_type='CREDIT',
-            description=f'Refund for item {item.product_name} from order #{order.order_number}'
-        )
-        
-        # Update wallet balance using Decimal
-        wallet.balance += refund_amount
-        wallet.save()
-        
-        # Update item status
-        item.status = 'refunded'
-        item.save()
-        
-        # Check if all items are refunded and update order status accordingly
-        if order.items.exclude(status='refunded').count() == 0:
-            order.payment_status = 'refunded'
-            order.save()
-        
+
+        try:
+            with transaction.atomic():
+                # Calculate refund amount and handle cancellation
+                refund_amount = order.calculate_item_refund_amount(item)
+
+                # Process the refund
+                order.process_refund(refund_amount, item)
+
+                # Update item status
+                item.status = 'refunded'
+                item.refund_amount = refund_amount
+                item.refund_processed = True
+                item.save()
+
+                # Check if all items are refunded
+                if not order.items.exclude(status='refunded').exists():
+                    order.payment_status = 'refunded'
+                    order.save()
+
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         return Response({
             'status': 'Item refund processed and credited to wallet',
-            'refunded_amount': float(refund_amount)  # Convert back to float for JSON response
+            'refunded_amount': float(refund_amount),
+            'coupon_adjustment': float(item.final_price - refund_amount)
         })
+
+
+    # workin
+    # @action(detail=True, methods=['post'])
+    # def refund(self, request, pk=None):
+    #     order = self.get_object()
+        
+    #     if order.payment_status == 'refunded':
+    #         return Response(
+    #             {'error': 'Order is already refunded'},
+    #             status=status.HTTP_400_BAD_REQUEST
+    #         )
+        
+    #     # Process full order refund
+    #     wallet, created = Wallet.objects.get_or_create(user=order.user)
+    #     WalletTransaction.objects.create(
+    #         wallet=wallet,
+    #         amount=order.final_total,
+    #         transaction_type='CREDIT',
+    #         description=f'Refund for order #{order.order_number}'
+    #     )
+    #     wallet.balance += order.final_total
+    #     wallet.save()
+            
+    #     order.payment_status = 'refunded'
+    #     order.save()
+        
+    #     # Update all items status to refunded
+    #     order.items.all().update(status='refunded')
+        
+    #     return Response({'status': 'Full order refund processed and credited to wallet'})
+    
+    # @action(detail=True, methods=['post'], url_path='refund-item/(?P<item_id>[^/.]+)')
+    # def refund_item(self, request, pk=None, item_id=None):
+    #     from decimal import Decimal
+        
+    #     order = self.get_object()
+        
+    #     try:
+    #         item = order.items.get(id=item_id)
+    #     except OrderItem.DoesNotExist:
+    #         return Response(
+    #             {'error': 'Item not found'},
+    #             status=status.HTTP_404_NOT_FOUND
+    #         )
+        
+    #     if item.status == 'refunded':
+    #         return Response(
+    #             {'error': 'Item is already refunded'},
+    #             status=status.HTTP_400_BAD_REQUEST
+    #         )
+        
+    #     if item.status != 'cancelled':
+    #         return Response(
+    #             {'error': 'Only cancelled items can be refunded'},
+    #             status=status.HTTP_400_BAD_REQUEST
+    #         )
+        
+    #     # Process item refund
+    #     wallet, created = Wallet.objects.get_or_create(user=order.user)
+    #     refund_amount = Decimal(str(item.final_price))  # Convert to Decimal
+        
+    #     WalletTransaction.objects.create(
+    #         wallet=wallet,
+    #         amount=refund_amount,
+    #         transaction_type='CREDIT',
+    #         description=f'Refund for item {item.product_name} from order #{order.order_number}'
+    #     )
+        
+    #     # Update wallet balance using Decimal
+    #     wallet.balance += refund_amount
+    #     wallet.save()
+        
+    #     # Update item status
+    #     item.status = 'refunded'
+    #     item.save()
+        
+    #     # Check if all items are refunded and update order status accordingly
+    #     if order.items.exclude(status='refunded').count() == 0:
+    #         order.payment_status = 'refunded'
+    #         order.save()
+        
+    #     return Response({
+    #         'status': 'Item refund processed and credited to wallet',
+    #         'refunded_amount': float(refund_amount)  # Convert back to float for JSON response
+    #     })
 
     # @action(detail=True, methods=['post'])
     # def refund(self, request, pk=None):

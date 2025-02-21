@@ -19,11 +19,9 @@ const Invoice = ({ order, onClose }) => {
     const printContent = document.getElementById('invoice-content');
     const originalDisplay = printContent.style.display;
     
-    // Create a new window for printing
     const printWindow = window.open('', '_blank');
     printWindow.document.write('<html><head><title>Invoice</title>');
     
-    // Copy the current page's styles
     document.querySelectorAll('style, link[rel="stylesheet"]').forEach(style => {
       printWindow.document.write(style.outerHTML);
     });
@@ -33,7 +31,6 @@ const Invoice = ({ order, onClose }) => {
     printWindow.document.write('</body></html>');
     printWindow.document.close();
     
-    // Wait for images to load before printing
     printWindow.onload = () => {
       printWindow.print();
       printWindow.close();
@@ -57,6 +54,16 @@ const Invoice = ({ order, onClose }) => {
     }
   };
 
+  // Check if all items are cancelled or refunded
+  const isEntireOrderCancelled = order.items.every(
+    item => item.status === "cancelled" || item.status === "refunded"
+  );
+
+  // Check if all items are delivered
+  const isEntireOrderDelivered = order.items.every(
+    item => item.status === "delivered"
+  );
+
   return (
     <DialogContent className="max-w-4xl max-h-screen flex flex-col">
       <DialogHeader>
@@ -79,7 +86,19 @@ const Invoice = ({ order, onClose }) => {
       </DialogHeader>
 
       <div id="invoice-content" className="flex-1 overflow-y-auto p-6">
-        <div className="space-y-6">
+        <div className="space-y-6 relative">
+          {/* Order Status Stamp */}
+          {isEntireOrderCancelled && (
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rotate-[-30deg] border-8 border-red-500 rounded-lg p-4 text-red-500 text-4xl font-bold opacity-30 pointer-events-none">
+              CANCELLED
+            </div>
+          )}
+          {isEntireOrderDelivered && (
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rotate-[-30deg] border-8 border-green-500 rounded-lg p-4 text-green-500 text-4xl font-bold opacity-30 pointer-events-none">
+              DELIVERED
+            </div>
+          )}
+
           <div className="text-center">
             <img src={logo} alt="Logo" className="logo_img01 mx-auto" />
             <p className="text-sm text-gray-600">1st Floor Rabby Tower, Kannur, 670001</p>
@@ -121,17 +140,34 @@ const Invoice = ({ order, onClose }) => {
               {order.items.map((item, index) => (
                 <tr 
                   key={item.id} 
-                  className={`
-                    ${item.status === "cancelled" ? "cancelled-stamp" : ""}
-                    ${item.status === "delivered" ? "delivered-stamp" : ""}
+                  className={`relative
+                    ${(item.status === "cancelled" || item.status === "refunded") ? "opacity-50" : ""}
+                    ${item.status === "delivered" ? "bg-green-50" : ""}
                   `}
                 >
-                  <td className="border p-2">{index + 1}</td>
-                  <td className="border p-2">{item.product_name}</td>
-                  <td className="border p-2">{item.quantity}</td>
-                  <td className="border p-2">₹{item.original_price}</td>
-                  <td className="border p-2">₹{item.discount_amount}</td>
-                  <td className="border p-2">₹{item.final_price}</td>
+                  <td className={`border p-2 ${(item.status === "cancelled" || item.status === "refunded") ? "line-through" : ""}`}>
+                    {index + 1}
+                  </td>
+                  <td className={`border p-2 ${(item.status === "cancelled" || item.status === "refunded") ? "line-through" : ""}`}>
+                    {item.product_name}
+                    {(item.status === "cancelled" || item.status === "refunded") && (
+                      <span className="ml-2 text-sm text-red-500 no-underline">
+                        ({item.status.charAt(0).toUpperCase() + item.status.slice(1)})
+                      </span>
+                    )}
+                  </td>
+                  <td className={`border p-2 ${(item.status === "cancelled" || item.status === "refunded") ? "line-through" : ""}`}>
+                    {item.quantity}
+                  </td>
+                  <td className={`border p-2 ${(item.status === "cancelled" || item.status === "refunded") ? "line-through" : ""}`}>
+                    ₹{item.original_price}
+                  </td>
+                  <td className={`border p-2 ${(item.status === "cancelled" || item.status === "refunded") ? "line-through" : ""}`}>
+                    ₹{item.discount_amount}
+                  </td>
+                  <td className={`border p-2 ${(item.status === "cancelled" || item.status === "refunded") ? "line-through" : ""}`}>
+                    ₹{item.final_price}
+                  </td>
                 </tr>
               ))}
             </tbody>

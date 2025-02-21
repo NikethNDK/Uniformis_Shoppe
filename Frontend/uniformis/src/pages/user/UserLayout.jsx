@@ -11,7 +11,7 @@
 //   const [selectedImage, setSelectedImage] = useState(null)
 
 //   // routes where the user sidebar should be shown
-//   const sidebarRoutes = ["/user/profile-information"]; 
+//   const sidebarRoutes = ["/user/profile-information"];
 
 //   // Check if the current route is in sidebarRoutes
 //   const showSidebar = sidebarRoutes.includes(location.pathname);
@@ -43,34 +43,41 @@
 
 // export default UserLayout;
 
-import { useState } from "react"
-import Navbar from "../../components/user/navbar/Navbar"
-import Footer from "../../components/user/footer/Footer"
-import { Outlet, useLocation } from "react-router-dom"
-import UserSidebar from "../../components/user/userprofile/UserSidebar"
-import ImageCropper from "./ProfileImageCropper"
+import { useEffect, useState } from "react";
+import Navbar from "../../components/user/navbar/Navbar";
+import Footer from "../../components/user/footer/Footer";
+import { Outlet, useLocation } from "react-router-dom";
+import UserSidebar from "../../components/user/userprofile/UserSidebar";
+import ImageCropper from "./ProfileImageCropper";
 
 const UserLayout = () => {
-  const location = useLocation()
-  const [showImageCropper, setShowImageCropper] = useState(false)
-  const [selectedImage, setSelectedImage] = useState(null)
+  const location = useLocation();
+  const [showImageCropper, setShowImageCropper] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
 
   // routes where the user sidebar should be shown
-  const sidebarRoutes = ["/user/profile-information","/user/address","/user/trackorder","/user/wallet"]
+  const sidebarRoutes = [
+    "/user/profile-information",
+    "/user/address",
+    "/user/trackorder",
+    "/user/wallet",
+  ];
 
-  
-  const showSidebar = sidebarRoutes.includes(location.pathname)
+  const showSidebar = sidebarRoutes.includes(location.pathname);
+
+  useEffect(() => {
+    console.log("Sidebar should show:", sidebarRoutes.includes(location.pathname));
+  }, [location.pathname]);
 
   const handleImageSelect = (image) => {
-    setSelectedImage(image)
-    setShowImageCropper(true)
-  }
+    setSelectedImage(image);
+    setShowImageCropper(true);
+  };
 
   const handleImageCropComplete = (croppedImage) => {
-   
-    console.log("Cropped image:", croppedImage)
-    setShowImageCropper(false)
-  }
+    console.log("Cropped image:", croppedImage);
+    setShowImageCropper(false);
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -90,8 +97,7 @@ const UserLayout = () => {
         />
       )}
     </div>
-  )
-}
+  );
+};
 
-export default UserLayout
-
+export default UserLayout;

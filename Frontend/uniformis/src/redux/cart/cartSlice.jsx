@@ -156,7 +156,7 @@ export const removeFromCart = createAsyncThunk(
 
     } catch (error) {
       const errorMessage = "Failed to remove item from cart";
-      toast.error(errorMessage);
+      // toast.error(errorMessage);
       return rejectWithValue({
         message: errorMessage,
         type: error.type || "ERROR"
