@@ -2,10 +2,10 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 from django.db.models import Count, Avg
-from .models import Category, Product, Review, ProductImage, Size,Color
+from .models import Category, Product, Review, ProductImage, Size,Color,ProductSizeColor
 from .serializers import (
     CategorySerializer, ProductSerializer, SizeSerializer,
-    ReviewSerializer, ProductDetailSerializer,ColorSerializer
+    ReviewSerializer, ProductDetailSerializer,ColorSerializer,ProductSizeColorSerializer
 )
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.pagination import PageNumberPagination
@@ -160,6 +160,68 @@ class AdminProductViewSet(BaseProductViewSet):
         instance.is_deleted = True
         instance.is_active = False
         instance.save()
+
+    @action(detail=True, methods=['PATCH'])
+    def toggle_variant(self, request, pk=None):
+        variant_id = request.data.get('variant_id')
+        print("Received variant_id:", variant_id)
+        print("Full request data:", request.data)
+
+        if not variant_id:
+            return Response(
+                {'error': 'variant_id required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            variant = ProductSizeColor.objects.get(
+                id=variant_id,
+                product_id=pk,
+                is_deleted=False
+            )
+            print("Found variant:", variant) 
+            variant.is_active = not variant.is_active
+            variant.save()
+            serializer = ProductSizeColorSerializer(variant)
+            return Response(serializer.data)
+        except ProductSizeColor.DoesNotExist:
+            return Response(
+                {'error': 'Variant not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            print("Error in toggle_variant:", str(e))  # Debug print
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=True, methods=['POST'])
+    def restore_variant(self, request, pk=None):
+        variant_id = request.data.get('variant_id')
+        if not variant_id:
+            return Response(
+                {'error': 'variant_id required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            variant = ProductSizeColor.objects.get(
+                id=variant_id,
+                product_id=pk,
+                is_deleted=True
+            )
+            variant.is_deleted = False
+            variant.is_active = True
+            variant.save()
+            serializer = ProductSizeColorSerializer(variant)
+            return Response(serializer.data)
+        except ProductSizeColor.DoesNotExist:
+            return Response(
+                {'error': 'Variant not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+    
 
 class UserProductViewSet(BaseProductViewSet):
     """ViewSet for customer-facing product operations"""

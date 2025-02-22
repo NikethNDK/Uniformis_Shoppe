@@ -205,7 +205,7 @@
 
 // export default ProductList;
 
-import { useEffect, useState } from "react"
+import React, { useEffect, useState } from "react"
 import { useDispatch, useSelector } from "react-redux"
 import { fetchProducts, updateProductStatus, deleteProduct } from "../../../redux/product/productSlice"
 import { Link, useNavigate } from "react-router-dom"
@@ -216,12 +216,23 @@ import "react-toastify/dist/ReactToastify.css"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/components/ui/accordion"
 import { Badge } from "@/components/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/components/ui/table"
-
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../components/ui/alert-dialog";
 const ProductList = () => {
   const dispatch = useDispatch()
   const { items: products, status, error, totalPages, currentPage } = useSelector((state) => state.products)
   const [searchTerm, setSearchTerm] = useState("")
   const [updatingId, setUpdatingId] = useState(null)
+  const [isOpen,setIsOpen]=useState(false)
+  const [selectedProductId,setSelectedProductId]=useState(null)
 
   useEffect(() => {
     dispatch(fetchProducts({ page: 1, search: searchTerm }))
@@ -241,12 +252,16 @@ const ProductList = () => {
   }
 
   const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to permanently delete this product?")) {
+     {
       try {
         await dispatch(deleteProduct(id)).unwrap()
         toast.success("Product deleted successfully")
+        setIsOpen(false)
+        setSelectedProductId(null)
       } catch (error) {
         toast.error("Error deleting product")
+        setIsOpen(false)
+        setSelectedProductId(null)
       }
     }
   }
@@ -391,7 +406,7 @@ const ProductList = () => {
           <tbody>
             {Array.isArray(products) && products.length > 0 ? (
               products.map((product,index) => (
-                <>
+                <React.Fragment key={product.id}>
                 <tr key={product.id}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <img
@@ -432,7 +447,11 @@ const ProductList = () => {
                         <PencilIcon className="h-5 w-5" />
                       </Link>
                       <button
-                        onClick={() => handleDelete(product.id)}
+                      onClick={() => {
+                        setSelectedProductId(product.id)
+                        setIsOpen(true)
+                      }}
+                        
                         className="text-red-500 hover:text-red-700 transition-colors"
                       >
                         <TrashIcon className="h-5 w-5" />
@@ -445,7 +464,7 @@ const ProductList = () => {
           <td colSpan="6" className="border-b border-gray-400"></td>
         </tr>
       )}
-                </>
+                </React.Fragment>
               ))
             ) : (
               <tr>
@@ -470,6 +489,20 @@ const ProductList = () => {
           </button>
         ))}
       </div>
+      <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure want to delete the product?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleDelete(selectedProductId)}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

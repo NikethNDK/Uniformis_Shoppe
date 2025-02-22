@@ -130,7 +130,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderItem
         fields = ['id', 'product_name', 'size', 'color', 'quantity', 'original_price', 'discount_amount', 'final_price', 'image','discount_percentage','status', 'can_cancel', 'cancel_reason',
-            'return_reason','discount_amount','category']
+            'return_reason','discount_amount','category','refund_amount','returned_at']
     
     def get_image(self, obj):
         if obj.variant and obj.variant.product.images.exists():

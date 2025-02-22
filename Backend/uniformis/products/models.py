@@ -86,6 +86,10 @@ class ProductSizeColor(models.Model):
     color = models.ForeignKey(Color, on_delete=models.CASCADE)
     stock_quantity = models.IntegerField(default=0)
     price = models.DecimalField(max_digits=10, decimal_places=2)
+    is_active=models.BooleanField(default=True)
+    is_deleted=models.BooleanField(default=False)
+    created_at=models.DateTimeField(auto_now_add=True)
+    updated_at=models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = 'product_size_color'

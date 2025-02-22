@@ -106,8 +106,15 @@ const ProductDetail = () => {
   };
 
   const findLowestPricedVariant = (variants) => {
-    return variants.reduce((lowest, current) => (current.price < lowest.price ? current : lowest))
+    const activeVariantsWithStock = variants.filter(v => v.is_active && v.stock_quantity > 0);
+    if (activeVariantsWithStock.length === 0) return variants[0]; // fallback
+    return activeVariantsWithStock.reduce((lowest, current) => 
+      (current.price < lowest.price ? current : lowest)
+    );
   }
+  const getActiveVariants = () => {
+    return product?.variants?.filter(v => v.is_active) || [];
+  };
 
   useEffect(() => {
     if (product && product.variants.length > 0) {
@@ -161,10 +168,19 @@ const ProductDetail = () => {
   };
 
   const handleVariantSelect = (variant) => {
-    setSelectedVariant(variant)
-    setQuantity(1)
+    if (!variant.is_active || variant.stock_quantity === 0) {
+      toast.warning('This variant is not available');
+      return;
+    }
+    setSelectedVariant(variant);
+    setQuantity(1);
   }
-
+  
+  const getAvailableSizes = () => {
+    const activeVariants = getActiveVariants();
+    const variantsWithStock = activeVariants.filter(v => v.stock_quantity > 0);
+    return [...new Set(variantsWithStock.map(v => v.size.name))];
+  };
   const handleQuantityChange = (newQuantity) => {
     if (newQuantity >= 1 && newQuantity <= 5 && newQuantity <= selectedVariant.stock_quantity) {
       setQuantity(newQuantity)
@@ -184,10 +200,14 @@ const ProductDetail = () => {
     
         }
       };
-  const getAvailableColors = (size) => {
-    return product.variants.filter((v) => v.size.name === size).map((v) => v.color)
-  }
-
+      const getAvailableColors = (size) => {
+        const activeVariants = getActiveVariants();
+        return [...new Set(
+          activeVariants
+            .filter(v => v.size.name === size && v.stock_quantity > 0)
+            .map(v => v.color)
+        )];
+      };
   const handleAddToCart = async () => {
     try {
       await dispatch(addToCart({
@@ -228,7 +248,7 @@ const ProductDetail = () => {
     );
   }
 
-  const availableSizes = [...new Set(product.variants.map((v) => v.size.name))]
+  // const availableSizes = [...new Set(product.variants.map((v) => v.size.name))]
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -352,40 +372,38 @@ const ProductDetail = () => {
 <div className="mb-6">
             <h5 className="font-semibold mb-2">Available Sizes:</h5>
             <div className="flex flex-wrap gap-2">
-              {availableSizes.map((size) => (
-                <button
-                  key={size}
-                  className={`px-4 py-2 border rounded-md ${
-                    selectedSize === size ? "bg-blue-500 text-white" : "bg-gray-100"
-                  }`}
-                  onClick={() => handleSizeSelect(size)}
-                >
-                  {size}
-                </button>
-              ))}
-            </div>
+          {getAvailableSizes().map((size) => (
+            <button
+              key={size}
+              className={`px-4 py-2 border rounded-md ${
+                selectedSize === size ? "bg-blue-500 text-white" : "bg-gray-100"
+              }`}
+              onClick={() => handleSizeSelect(size)}
+            >
+              {size}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {selectedSize && (
+        <div className="mb-6">
+          <h5 className="font-semibold mb-2">Available Colors:</h5>
+          <div className="flex flex-wrap gap-2">
+            {getAvailableColors(selectedSize).map((color) => (
+              <button
+                key={color.id}
+                className={`w-8 h-8 rounded-full border-2 ${
+                  selectedColor === color.name ? "border-blue-500" : "border-gray-300"
+                }`}
+                style={{ backgroundColor: color.hex_code }}
+                onClick={() => handleColorSelect(color.name)}
+                title={color.name}
+              />
+            ))}
           </div>
-
-
-
-{selectedSize && (
-            <div className="mb-6">
-              <h5 className="font-semibold mb-2">Available Colors:</h5>
-              <div className="flex flex-wrap gap-2">
-                {getAvailableColors(selectedSize).map((color) => (
-                  <button
-                    key={color.id}
-                    className={`w-8 h-8 rounded-full border-2 ${
-                      selectedColor === color.name ? "border-blue-500" : "border-gray-300"
-                    }`}
-                    style={{ backgroundColor: color.hex_code }}
-                    onClick={() => handleColorSelect(color.name)}
-                    title={color.name}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+        </div>
+      )}
 
 
 {selectedVariant && (
@@ -416,15 +434,16 @@ const ProductDetail = () => {
 
 
 {selectedVariant && (
-        <div className="mb-4">
-          {selectedVariant.stock_quantity === 0 ? (
-            <p className="text-red-500 font-bold">Out of stock</p>
-          ) : selectedVariant.stock_quantity <= 2 ? (
-            <p className="text-red-500 font-bold">Hurry up! Only {selectedVariant.stock_quantity} item(s) left</p>
-          ) : null}
-        </div>
-      )}
-
+  <div className="mb-4">
+    {!selectedVariant.is_active ? (
+      <p className="text-red-500 font-bold">This variant is not available</p>
+    ) : selectedVariant.stock_quantity === 0 ? (
+      <p className="text-red-500 font-bold">Out of stock</p>
+    ) : selectedVariant.stock_quantity <= 2 ? (
+      <p className="text-red-500 font-bold">Hurry up! Only {selectedVariant.stock_quantity} item(s) left</p>
+    ) : null}
+  </div>
+)}
 
           <div className="flex space-x-4">
             <button

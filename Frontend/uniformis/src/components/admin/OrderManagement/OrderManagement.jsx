@@ -61,6 +61,7 @@ import {
   DialogDescription,
 } from "../../components/ui/dialog";
 import Invoice from "./Invoice";
+import OrderFinancialDetails from './OrderFinancialDetails';
 
 const statusColors = {
   pending: "bg-yellow-100 text-yellow-800",
@@ -524,6 +525,9 @@ export default function AdminOrderManagement() {
                                   )}
                                 </AccordionContent>
                               </AccordionItem>
+                              <div className="mt-6">
+  <OrderFinancialDetails order={order} />
+</div>
                             </Accordion>
 
                             <div className="space-y-4">

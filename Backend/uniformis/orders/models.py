@@ -165,10 +165,7 @@ class Order(models.Model):
                 )
 
 
-        """
-        Calculates the correct refund amount for an item, considering both item-level 
-        and order-level (coupon) discounts
-        """
+     
     def calculate_item_refund_amount(self, item):
        
         logger.debug(f"Item original price: {item.original_price}")
@@ -177,16 +174,16 @@ class Order(models.Model):
         logger.debug(f"Order subtotal: {self.subtotal}")
         logger.debug(f"Order coupon discount: {self.coupon_discount}")
         
-        # Get remaining items' original prices
+        # Get remaining items original prices
         remaining_items = self.items.exclude(id=item.id).exclude(status__in=['cancelled', 'refunded'])
         remaining_total = sum(i.original_price for i in remaining_items)
         
         logger.debug(f"Remaining total (original prices): {remaining_total}")
         
-        # Start with item's final price (after item-level discount)
+        # Start with item final price (after item-level discount)
         refund_amount = Decimal(str(item.final_price))
         
-        # If there's a coupon discount, calculate item's share
+        # If there is a coupon discount, calculate item share
         if self.coupon and self.coupon_discount > 0:
             # Calculate percentage based on original price
             item_percentage = Decimal(str(item.original_price)) / Decimal(str(self.subtotal))
@@ -213,11 +210,11 @@ class Order(models.Model):
         logger.debug(f"Final calculated refund amount: {final_refund}")
         
         return final_refund
-
+    
+    # Handles the cancellation of an item including coupon validation and stock updates
+    
     def handle_item_cancellation(self, item):
-        """
-        Handles the cancellation of an item including coupon validation and stock updates
-        """
+ 
         from decimal import Decimal
         import logging
         logger = logging.getLogger(__name__)
@@ -254,9 +251,7 @@ class Order(models.Model):
             return refund_amount
 
     def recalculate_totals(self):
-        """
-        Recalculates order totals after modifications
-        """
+        
         from decimal import Decimal
         
         # Get active items
@@ -277,9 +272,7 @@ class Order(models.Model):
         self.save()
 
     def process_refund(self, refund_amount, item=None):
-        """
-        Processes the refund to user's wallet
-        """
+    
         wallet, created = Wallet.objects.get_or_create(user=self.user)
         
         description = (

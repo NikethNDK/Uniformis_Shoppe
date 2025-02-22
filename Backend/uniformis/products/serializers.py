@@ -40,7 +40,7 @@ class ProductSizeColorSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProductSizeColor
-        fields = ['id', 'size', 'color', 'size_id', 'color_id', 'stock_quantity','price']
+        fields = ['id', 'size', 'color', 'size_id', 'color_id', 'stock_quantity','price','is_active','is_deleted']
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -135,29 +135,52 @@ class ProductSerializer(serializers.ModelSerializer):
             current_variants = { (v.size_id, v.color_id): v for v in instance.variants.all() }
             
             # Update or create variants
-            for variant in variants_data:
-                key = (variant['size_id'], variant['color_id'])
-                if key in current_variants:
-                    # Update existing
-                    current_variant = current_variants[key]
-                    current_variant.stock_quantity = variant['stock_quantity']
-                    current_variant.price = variant['price']
-                    current_variant.save()
-                else:
-                    # Create new
-                    ProductSizeColor.objects.create(
-                        product=instance,
-                        size_id=variant['size_id'],
-                        color_id=variant['color_id'],
-                        stock_quantity=variant['stock_quantity'],
-                        price=variant['price']
-                    )
-            
-            # Remove deleted variants
+            if variants_data is not None:
+                current_variants = {(v.size_id, v.color_id): v for v in instance.variants.filter(is_deleted=False)}
+                
+                # Update or create variants
+                for variant in variants_data:
+                    key = (variant['size_id'], variant['color_id'])
+                    if key in current_variants:
+                        # Update existing
+                        current_variant = current_variants[key]
+                        current_variant.stock_quantity = variant['stock_quantity']
+                        current_variant.price = variant['price']
+                        current_variant.is_active = variant.get('is_active', True)
+                        current_variant.save()
+                    else:
+                        # Check if there's a soft-deleted variant to reactivate
+                        soft_deleted_variant = ProductSizeColor.objects.filter(
+                            product=instance,
+                            size_id=variant['size_id'],
+                            color_id=variant['color_id'],
+                            is_deleted=True
+                        ).first()
+                        
+                        if soft_deleted_variant:
+                            # Reactivate soft-deleted variant
+                            soft_deleted_variant.is_deleted = False
+                            soft_deleted_variant.is_active = True
+                            soft_deleted_variant.stock_quantity = variant['stock_quantity']
+                            soft_deleted_variant.price = variant['price']
+                            soft_deleted_variant.save()
+                        else:
+                            # Create new variant
+                            ProductSizeColor.objects.create(
+                                product=instance,
+                                size_id=variant['size_id'],
+                                color_id=variant['color_id'],
+                                stock_quantity=variant['stock_quantity'],
+                                price=variant['price']
+                            )
+                
+            # Soft delete removed variants
             existing_keys = set((v['size_id'], v['color_id']) for v in variants_data)
             for key, variant in current_variants.items():
                 if key not in existing_keys:
-                    variant.delete()
+                    variant.is_deleted = True
+                    variant.is_active = False
+                    variant.save()
         
         return instance
 

@@ -52,12 +52,15 @@ const EditProduct = () => {
 
       const productVariants =
         currentProduct.variants?.map((variant) => ({
+          id: variant.id,
           size: variant.size.id,
           color: variant.color.id,
           stock_quantity: variant.stock_quantity,
           price: variant.price,
+          is_active: variant.is_active
         })) || []
-      setVariants(productVariants)
+        console.log("Setting initial variants:", productVariants);
+        setVariants(productVariants)
     }
   }, [currentProduct])
 
@@ -199,7 +202,42 @@ const EditProduct = () => {
   if (!currentProduct) {
     return <Loading />
   }
+  const toggleVariant = async (variantId) => {
+    try {
+      console.log("Toggling variant with ID:", variantId);
+      console.log("Full variant data:", variants[variantId]);
+      const response = await productApi.patch(
+        `/items/${id}/toggle_variant/`,
+        { variant_id: variantId }
+      );
 
+      console.log("Toggle response:", response.data);
+
+      // Update the variants state with the toggled variant
+      setVariants(variants.map(variant => 
+        variant.id === variantId 
+          ? { ...variant, is_active: !variant.is_active }
+          : variant
+      ));
+      toast.success("Variant status updated successfully");
+    } catch (error) {
+      toast.error("Error updating variant status");
+    }
+  };
+  
+  const restoreVariant = async (variantId) => {
+    try {
+      const response = await productApi.post(
+        `/items/${id}/restore_variant/`,
+        { variant_id: variantId }
+      );
+      // Add the restored variant back to the variants list
+      setVariants([...variants, response.data]);
+      toast.success("Variant restored successfully");
+    } catch (error) {
+      toast.error("Error restoring variant");
+    }
+  };
   return (
     <div className="ml-64 p-8 sm:p-6 md:p-8 ">
       <ToastContainer position="top-right" />
@@ -259,67 +297,85 @@ const EditProduct = () => {
                   </Button>
 
                   <div className="space-y-4">
-                    {variants.map((variant, index) => (
-                      <div key={index} className="flex gap-4 items-center p-4 border rounded bg-gray-50">
-                        <select
-                          className="flex-1 p-2 border rounded"
-                          value={variant.size}
-                          onChange={(e) => handleVariantChange(index, "size", e.target.value)}
-                          required
-                        >
-                          <option value="">Select Size</option>
-                          {sizes.map((size) => (
-                            <option key={size.id} value={size.id}>
-                              {size.name}
-                            </option>
-                          ))}
-                        </select>
+                  {variants.map((variant, index) => ( // Added index parameter here
+                    <div key={variant.id || index} className="flex flex-wrap gap-4 items-center p-4 border rounded bg-gray-50">
+                      <select
+                        className="flex-1 p-2 border rounded min-w-[150px]"
+                        value={variant.size}
+                        onChange={(e) => handleVariantChange(index, "size", e.target.value)}
+                        required
+                      >
+                        <option value="">Select Size</option>
+                        {sizes.map((size) => (
+                          <option key={size.id} value={size.id}>
+                            {size.name}
+                          </option>
+                        ))}
+                      </select>
 
-                        <select
-                          className="flex-1 p-2 border rounded"
-                          value={variant.color}
-                          onChange={(e) => handleVariantChange(index, "color", e.target.value)}
-                          required
-                        >
-                          <option value="">Select Color</option>
-                          {colors.map((color) => (
-                            <option key={color.id} value={color.id}>
-                              {color.name}
-                            </option>
-                          ))}
-                        </select>
+                      <select
+                        className="flex-1 p-2 border rounded min-w-[150px]"
+                        value={variant.color}
+                        onChange={(e) => handleVariantChange(index, "color", e.target.value)}
+                        required
+                      >
+                        <option value="">Select Color</option>
+                        {colors.map((color) => (
+                          <option key={color.id} value={color.id}>
+                            {color.name}
+                          </option>
+                        ))}
+                      </select>
 
-                        <input
-                          type="number"
-                          className="flex-1 p-2 border rounded"
-                          value={variant.stock_quantity}
-                          onChange={(e) => handleVariantChange(index, "stock_quantity", e.target.value)}
-                          min="0"
-                          placeholder="Stock"
-                          required
-                        />
-                        <input
-                          type="number"
-                          className="flex-1 p-2 border rounded"
-                          value={variant.price}
-                          onChange={(e) => handleVariantChange(index, "price", e.target.value)}
-                          min="0"
-                          step="0.01"
-                          placeholder="Price"
-                          required
-                        />
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          onClick={() => removeVariant(index)}
-                          className="p-2"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
+                      <input
+                        type="number"
+                        className="flex-1 p-2 border rounded min-w-[100px]"
+                        value={variant.stock_quantity}
+                        onChange={(e) => handleVariantChange(index, "stock_quantity", e.target.value)}
+                        min="0"
+                        placeholder="Stock"
+                        required
+                      />
+
+                      <input
+                        type="number"
+                        className="flex-1 p-2 border rounded min-w-[100px]"
+                        value={variant.price}
+                        onChange={(e) => handleVariantChange(index, "price", e.target.value)}
+                        min="0"
+                        step="0.01"
+                        placeholder="Price"
+                        required
+                      />
+                      
+                      <Button
+                        type="button"
+                        variant={variant.is_active ? "default" : "secondary"}
+                        onClick={() => toggleVariant(variant.id)}
+                        className="p-2 whitespace-nowrap"
+                      >
+                        {variant.is_active ? "Active" : "Inactive"}
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        onClick={() => {
+                          if (variants.length === 1) {
+                            toast.error("At least one variant is required");
+                            return;
+                          }
+                          handleVariantChange(index, "is_deleted", true);
+                          setVariants(variants.filter((_, i) => i !== index));
+                        }}
+                        className="p-2"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
+              </div>
 
                 <div>
                   <label className="block text-sm font-medium mb-1">Current Images</label>
