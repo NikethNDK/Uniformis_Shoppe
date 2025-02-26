@@ -52,7 +52,7 @@ const ForgotPassword = () => {
               required
             />
           </div>
-
+ 
           {message && <p className="text-green-600 text-center">{message}</p>}
           {error && <p className="text-red-600 text-center">{error}</p>}
 

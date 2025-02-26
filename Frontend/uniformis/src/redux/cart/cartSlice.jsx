@@ -241,19 +241,6 @@ const cartSlice = createSlice({
   name: "cart",
   initialState,
   reducers: {
-    // calculateTotals: (state) => {
-    //   state.totalAmount = state.items.reduce(
-    //     (total, item) => total + item.final_price * item.quantity,
-    //     0
-    //   )
-    //   state.itemCount = state.items.reduce(
-    //     (count, item) => count + item.quantity,
-    //     0
-    //   )
-    // },
-    // clearError: (state) => {
-    //   state.error = null
-    // }
   },
   extraReducers: (builder) => {
     builder

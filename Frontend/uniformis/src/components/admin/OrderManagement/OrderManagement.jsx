@@ -61,7 +61,7 @@ import {
   DialogDescription,
 } from "../../components/ui/dialog";
 import Invoice from "./Invoice";
-import OrderFinancialDetails from './OrderFinancialDetails';
+import OrderFinancialDetails from "./OrderFinancialDetails";
 
 const statusColors = {
   pending: "bg-yellow-100 text-yellow-800",
@@ -108,34 +108,36 @@ export default function AdminOrderManagement() {
       order.payment_status !== "refunded"
     );
   };
-  
+
   // Function to check if an individual item can be refunded
   const canRefundItem = (item, order) => {
     // Check if item is either cancelled or returned
-    const isRefundableStatus = item.status === "cancelled" || item.status === "returned";
-    
+    const isRefundableStatus =
+      item.status === "cancelled" || item.status === "returned";
+
     // Check if order's payment is not already refunded
     const isPaymentRefundable = order.payment_status !== "refunded";
-    
+
     // Don't show individual item refund if entire order is cancelled or returned
-    const isOrderRefundable = order.status !== "cancelled" && order.status !== "returned";
-    
-    return (
-      isRefundableStatus &&
-      isPaymentRefundable &&
-      isOrderRefundable
-    );
+    const isOrderRefundable =
+      order.status !== "cancelled" && order.status !== "returned";
+
+    return isRefundableStatus && isPaymentRefundable && isOrderRefundable;
   };
-  
+
   // If you need to restrict by payment method, use this version instead:
   const canRefundItemWithPaymentMethod = (item, order) => {
     const allowedPaymentMethods = ["card", "upi", "cod"]; // Include all allowed payment methods
-    
-    const isRefundableStatus = item.status === "cancelled" || item.status === "returned";
+
+    const isRefundableStatus =
+      item.status === "cancelled" || item.status === "returned";
     const isPaymentRefundable = order.payment_status !== "refunded";
-    const isOrderRefundable = order.status !== "cancelled" && order.status !== "returned";
-    const isPaymentMethodAllowed = allowedPaymentMethods.includes(order.payment_method);
-    
+    const isOrderRefundable =
+      order.status !== "cancelled" && order.status !== "returned";
+    const isPaymentMethodAllowed = allowedPaymentMethods.includes(
+      order.payment_method
+    );
+
     return (
       isRefundableStatus &&
       isPaymentRefundable &&
@@ -143,8 +145,6 @@ export default function AdminOrderManagement() {
       isPaymentMethodAllowed
     );
   };
-
-
 
   useEffect(() => {
     fetchOrders();
@@ -169,33 +169,32 @@ export default function AdminOrderManagement() {
   };
 
   const handleRefund = async (orderId, itemId = null) => {
-  try {
-    setUpdatingStatus(orderId);
-    
-    if (itemId) {
-      // For individual item refund
-      await orderApi.post(`${orderId}/refund-item/${itemId}/`);
-      toast.success("Item refund initiated successfully");
-    } else {
-      // For full order refund
-      await orderApi.post(`${orderId}/refund/`);
-      toast.success("Order refund initiated successfully");
+    try {
+      setUpdatingStatus(orderId);
+
+      if (itemId) {
+        // For individual item refund
+        await orderApi.post(`${orderId}/refund-item/${itemId}/`);
+        toast.success("Item refund initiated successfully");
+      } else {
+        // For full order refund
+        await orderApi.post(`${orderId}/refund/`);
+        toast.success("Order refund initiated successfully");
+      }
+
+      // Refresh orders after refund
+      await fetchOrders();
+
+      // Reset states
+      setRefundConfirmationOpen(false);
+      setOrderToRefund(null);
+    } catch (error) {
+      console.error("Refund error:", error);
+      toast.error(error.response?.data?.error || "Failed to initiate refund");
+    } finally {
+      setUpdatingStatus(null);
     }
-    
-    // Refresh orders after refund
-    await fetchOrders();
-    
-    // Reset states
-    setRefundConfirmationOpen(false);
-    setOrderToRefund(null);
-    
-  } catch (error) {
-    console.error("Refund error:", error);
-    toast.error(error.response?.data?.error || "Failed to initiate refund");
-  } finally {
-    setUpdatingStatus(null);
-  }
-};
+  };
   // const handleRefund = async (orderId, itemId = null) => {
   //   try {
   //     if (itemId) {
@@ -427,33 +426,33 @@ export default function AdminOrderManagement() {
                         </div>
                       </TableCell>
                       <TableCell>
-    <div className="flex space-x-2">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={(e) => {
-          e.stopPropagation();
-          setSelectedOrder(order);
-          setInvoiceDialogOpen(true);
-        }}
-      >
-        View Invoice
-      </Button>
-      {canRefundOrder(order) && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            setOrderToRefund(order);
-            setRefundConfirmationOpen(true);
-          }}
-        >
-          Refund Order
-        </Button>
-      )}
-    </div>
-  </TableCell>
+                        <div className="flex space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedOrder(order);
+                              setInvoiceDialogOpen(true);
+                            }}
+                          >
+                            View Invoice
+                          </Button>
+                          {canRefundOrder(order) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOrderToRefund(order);
+                                setRefundConfirmationOpen(true);
+                              }}
+                            >
+                              Refund Order
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
                     </TableRow>
                     {expandedOrder === order.id && (
                       <TableRow>
@@ -526,8 +525,8 @@ export default function AdminOrderManagement() {
                                 </AccordionContent>
                               </AccordionItem>
                               <div className="mt-6">
-  <OrderFinancialDetails order={order} />
-</div>
+                                <OrderFinancialDetails order={order} />
+                              </div>
                             </Accordion>
 
                             <div className="space-y-4">
@@ -535,52 +534,56 @@ export default function AdminOrderManagement() {
                                 Order Items
                               </h3>
                               <div className="grid gap-4">
-                              {order.items?.map((item) => (
-  <div
-    key={item.id}
-    className="flex items-center gap-4 bg-background rounded-lg border p-4"
-  >
-    <img
-      src={item.image || "/placeholder.svg"}
-      alt={item.product_name}
-      className="h-24 w-24 rounded-md object-cover"
-    />
-    <div className="flex-1 min-w-0">
-      <h4 className="font-medium text-lg truncate">
-        {item.product_name}
-      </h4>
-      <div className="mt-1 text-sm text-muted-foreground space-y-1">
-        <p>Size: {item.size}</p>
-        <p>Color: {item.color}</p>
-        <p>Quantity: {item.quantity}</p>
-        <p>Status: {item.status}</p>
-      </div>
-    </div>
-    <div className="text-right space-y-1">
-      <p className="text-sm text-muted-foreground">
-        Original: ₹{item.original_price}
-      </p>
-      <p className="text-sm text-green-600">
-        Discount: ₹{item.discount_amount} ({item.discount_percentage}%)
-      </p>
-      <p className="font-medium">
-        Final Price: ₹{item.final_price}
-      </p>
-      {canRefundItemWithPaymentMethod(item, order) && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleRefund(order.id, item.id);
-          }}
-        >
-          Refund Item
-        </Button>
-      )}
-    </div>
-  </div>
-))}
+                                {order.items?.map((item) => (
+                                  <div
+                                    key={item.id}
+                                    className="flex items-center gap-4 bg-background rounded-lg border p-4"
+                                  >
+                                    <img
+                                      src={item.image || "/placeholder.svg"}
+                                      alt={item.product_name}
+                                      className="h-24 w-24 rounded-md object-cover"
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                      <h4 className="font-medium text-lg truncate">
+                                        {item.product_name}
+                                      </h4>
+                                      <div className="mt-1 text-sm text-muted-foreground space-y-1">
+                                        <p>Size: {item.size}</p>
+                                        <p>Color: {item.color}</p>
+                                        <p>Quantity: {item.quantity}</p>
+                                        <p>Status: {item.status}</p>
+                                      </div>
+                                    </div>
+                                    <div className="text-right space-y-1">
+                                      <p className="text-sm text-muted-foreground">
+                                        Original: ₹{item.original_price}
+                                      </p>
+                                      <p className="text-sm text-green-600">
+                                        Discount: ₹{item.discount_amount} (
+                                        {item.discount_percentage}%)
+                                      </p>
+                                      <p className="font-medium">
+                                        Final Price: ₹{item.final_price}
+                                      </p>
+                                      {canRefundItemWithPaymentMethod(
+                                        item,
+                                        order
+                                      ) && (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleRefund(order.id, item.id);
+                                          }}
+                                        >
+                                          Refund Item
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
                             </div>
                           </div>

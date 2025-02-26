@@ -71,6 +71,7 @@ class Order(models.Model):
     discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # Total discount applied
     coupon_discount = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # Coupon discount if any
     delivery_charges = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    wallet_amount_used = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     final_total = models.DecimalField(max_digits=10, decimal_places=2)  # Final price after all discounts
     
     # Tracking fields

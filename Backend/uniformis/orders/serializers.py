@@ -169,7 +169,7 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'order_number', 'status', 'payment_status', 
             'payment_method', 'subtotal', 'discount_amount',
-            'coupon_discount', 'delivery_charges', 'final_total',
+            'coupon_discount', 'delivery_charges', 'final_total','wallet_amount_used',
             'total_savings','created_at', 'items', 'user','is_returned', 'return_reason','delivery_address',
         ]
     
@@ -272,14 +272,6 @@ class WishlistItemSerializer(serializers.ModelSerializer):
 
     def get_total_price(self, obj):
          return obj.variant.price * obj.quantity
-
-    # def get_discounted_price(self, obj):
-    #     original_price = self.get_total_price(obj)
-    #     discount_percentage = self.get_discount_percentage(obj)
-    #     if discount_percentage:
-    #         discount_amount = (discount_percentage / 100) * original_price
-    #         return original_price - discount_amount
-    #     return original_price
     
     def get_final_price(self, obj):
         original_price = obj.variant.price * obj.quantity

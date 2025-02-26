@@ -220,14 +220,13 @@ class OrderViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Order.objects.filter(user=self.request.user)
 
-    def calculate_final_amount(self, cart, coupon_code=None):
-        """
-        Calculate final amount including all discounts and coupons
-        """
+    def calculate_final_amount(self, cart, coupon_code=None, wallet_amount=0):
+
         subtotal = cart.get_total_price()
         final_total = subtotal
         coupon_discount = 0
         total_discount = 0
+        wallet_amount_used = 0
 
         # Calculate item-level discounts
         for cart_item in cart.items.all():
@@ -268,13 +267,31 @@ class OrderViewSet(viewsets.ModelViewSet):
                     
             except Coupon.DoesNotExist:
                 raise ValidationError('Invalid coupon code')
+            
+         # Apply wallet amount if provided
+        if wallet_amount > 0:
+            wallet, created = Wallet.objects.get_or_create(user=self.request.user)
+            if wallet_amount > wallet.balance:
+                raise ValidationError(f'Insufficient wallet balance. Available: ₹{wallet.balance}')
+            
+            # Use wallet amount up to final_total
+            wallet_amount_used = min(wallet_amount, final_total)
+            final_total -= wallet_amount_used
 
         return {
             'subtotal': subtotal,
             'total_discount': total_discount,
             'coupon_discount': coupon_discount,
+            'wallet_amount_used': wallet_amount_used,
             'final_total': final_total
         }
+
+    @action(detail=False, methods=['get'])
+    def get_wallet_balance(self, request):
+        """Get the current user's wallet balance"""
+        wallet, created = Wallet.objects.get_or_create(user=request.user)
+        serializer = WalletSerializer(wallet)
+        return Response(serializer.data)
 
 
     @action(detail=False, methods=['post'], url_path='create_razorpay_order')
@@ -291,18 +308,27 @@ class OrderViewSet(viewsets.ModelViewSet):
 
             # Calculate final amount including all discounts
             coupon_code = request.data.get('coupon_code')
-            amounts = self.calculate_final_amount(cart, coupon_code)
-            
+            wallet_amount = Decimal(request.data.get('wallet_amount', 0))
+
+            amounts = self.calculate_final_amount(cart, coupon_code, wallet_amount)
+
+            wallet, created = Wallet.objects.get_or_create(user=request.user)
             # Create Razorpay order with final amount
             razorpay_order = create_razorpay_order(amounts['final_total'])
             
             # Include amount details in response
             response_data = {
                 'razorpay_order': razorpay_order,
-                'amount_details': amounts
+                'amount_details': amounts,
+                'available_wallet_balance': wallet.balance 
             }
             
             return Response(response_data)
+        except ValidationError as e:
+            return Response(
+                {'error': str(e)}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
         except Exception as e:
             logger.error("Error creating Razorpay order: %s", str(e))
             return Response(
@@ -312,6 +338,7 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def create_from_cart(self, request):
+        print(request)
         try:
             user = self.request.user
             cart = get_object_or_404(Cart, user=user)
@@ -325,6 +352,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             address_id = request.data.get('address_id')
             payment_method = request.data.get('payment_method')
             coupon_code = request.data.get('coupon_code')
+            wallet_amount = Decimal(request.data.get('wallet_amount', 0))
 
             # Validate address
             try:
@@ -336,10 +364,21 @@ class OrderViewSet(viewsets.ModelViewSet):
                 )
 
             # Calculate all amounts upfront
-            amounts = self.calculate_final_amount(cart, coupon_code)
+            amounts = self.calculate_final_amount(cart, coupon_code, wallet_amount)
+
+                        # Get coupon if provided
+            coupon = None
+            if coupon_code:
+                try:
+                    coupon = Coupon.objects.get(code=coupon_code)
+                except Coupon.DoesNotExist:
+                    return Response(
+                        {'error': 'Invalid coupon code'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
 
             # Verify Razorpay payment if card payment
-            if payment_method == 'card':
+            if payment_method == 'card'and amounts['final_total'] > 0:
                 payment_data = {
                     'razorpay_payment_id': request.data.get('payment_id'),
                     'razorpay_order_id': request.data.get('razorpay_order_id'),
@@ -354,17 +393,6 @@ class OrderViewSet(viewsets.ModelViewSet):
                         status=status.HTTP_400_BAD_REQUEST
                     )
 
-            # Get coupon if provided
-            coupon = None
-            if coupon_code:
-                try:
-                    coupon = Coupon.objects.get(code=coupon_code)
-                except Coupon.DoesNotExist:
-                    return Response(
-                        {'error': 'Invalid coupon code'},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-
             # Create order and items in a transaction
             with transaction.atomic():
                 # Create order with pre-calculated amounts
@@ -376,10 +404,25 @@ class OrderViewSet(viewsets.ModelViewSet):
                     discount_amount=amounts['total_discount'],
                     coupon_discount=amounts['coupon_discount'],
                     coupon=coupon,
-                    final_total=amounts['final_total'],
+                    final_total=amounts['final_total'] + amounts['wallet_amount_used'],
                     delivery_charges=0,
-                    payment_status='completed' if payment_method == 'card' else 'pending'
+                    wallet_amount_used=amounts['wallet_amount_used'],
+                    payment_status='completed' if (payment_method == 'card' or amounts['final_total'] == 0) else 'pending'
                 )
+
+                # Process wallet payment if used
+                if amounts['wallet_amount_used'] > 0:
+                    wallet = Wallet.objects.get(user=user)
+                    wallet.balance -= amounts['wallet_amount_used']
+                    wallet.save()
+                    
+                    # Create wallet transaction record
+                    WalletTransaction.objects.create(
+                        wallet=wallet,
+                        amount=amounts['wallet_amount_used'],
+                        transaction_type='DEBIT',
+                        description=f'Payment for order #{order.order_number}'
+                    )
 
                 # Create order address 
                 OrderAddress.objects.create(
@@ -715,123 +758,6 @@ class AdminOrderViewSet(viewsets.ModelViewSet):
             'coupon_adjustment': float(item.final_price - refund_amount)
         })
 
-
-    # workin
-    # @action(detail=True, methods=['post'])
-    # def refund(self, request, pk=None):
-    #     order = self.get_object()
-        
-    #     if order.payment_status == 'refunded':
-    #         return Response(
-    #             {'error': 'Order is already refunded'},
-    #             status=status.HTTP_400_BAD_REQUEST
-    #         )
-        
-    #     # Process full order refund
-    #     wallet, created = Wallet.objects.get_or_create(user=order.user)
-    #     WalletTransaction.objects.create(
-    #         wallet=wallet,
-    #         amount=order.final_total,
-    #         transaction_type='CREDIT',
-    #         description=f'Refund for order #{order.order_number}'
-    #     )
-    #     wallet.balance += order.final_total
-    #     wallet.save()
-            
-    #     order.payment_status = 'refunded'
-    #     order.save()
-        
-    #     # Update all items status to refunded
-    #     order.items.all().update(status='refunded')
-        
-    #     return Response({'status': 'Full order refund processed and credited to wallet'})
-    
-    # @action(detail=True, methods=['post'], url_path='refund-item/(?P<item_id>[^/.]+)')
-    # def refund_item(self, request, pk=None, item_id=None):
-    #     from decimal import Decimal
-        
-    #     order = self.get_object()
-        
-    #     try:
-    #         item = order.items.get(id=item_id)
-    #     except OrderItem.DoesNotExist:
-    #         return Response(
-    #             {'error': 'Item not found'},
-    #             status=status.HTTP_404_NOT_FOUND
-    #         )
-        
-    #     if item.status == 'refunded':
-    #         return Response(
-    #             {'error': 'Item is already refunded'},
-    #             status=status.HTTP_400_BAD_REQUEST
-    #         )
-        
-    #     if item.status != 'cancelled':
-    #         return Response(
-    #             {'error': 'Only cancelled items can be refunded'},
-    #             status=status.HTTP_400_BAD_REQUEST
-    #         )
-        
-    #     # Process item refund
-    #     wallet, created = Wallet.objects.get_or_create(user=order.user)
-    #     refund_amount = Decimal(str(item.final_price))  # Convert to Decimal
-        
-    #     WalletTransaction.objects.create(
-    #         wallet=wallet,
-    #         amount=refund_amount,
-    #         transaction_type='CREDIT',
-    #         description=f'Refund for item {item.product_name} from order #{order.order_number}'
-    #     )
-        
-    #     # Update wallet balance using Decimal
-    #     wallet.balance += refund_amount
-    #     wallet.save()
-        
-    #     # Update item status
-    #     item.status = 'refunded'
-    #     item.save()
-        
-    #     # Check if all items are refunded and update order status accordingly
-    #     if order.items.exclude(status='refunded').count() == 0:
-    #         order.payment_status = 'refunded'
-    #         order.save()
-        
-    #     return Response({
-    #         'status': 'Item refund processed and credited to wallet',
-    #         'refunded_amount': float(refund_amount)  # Convert back to float for JSON response
-    #     })
-
-    # @action(detail=True, methods=['post'])
-    # def refund(self, request, pk=None):
-    #     order = self.get_object()
-    #     # if order.payment_method == 'cod':
-    #     #     return Response(
-    #     #         {'error': 'Cannot refund COD orders'},
-    #     #         status=status.HTTP_400_BAD_REQUEST
-    #     #     )
-        
-    #     if order.payment_status == 'refunded':
-    #         return Response(
-    #             {'error': 'Order is already refunded'},
-    #             status=status.HTTP_400_BAD_REQUEST
-    #         )
-        
-    #     # Process the refund
-    #     wallet, created = Wallet.objects.get_or_create(user=order.user)
-    #     WalletTransaction.objects.create(
-    #         wallet=wallet,
-    #         amount=order.final_total,
-    #         transaction_type='CREDIT',
-    #         description=f'Refund for order #{order.order_number}'
-    #     )
-    #     wallet.balance += order.final_total
-    #     wallet.save()
-            
-    #     order.payment_status = 'refunded'
-    #     order.save()
-    #     return Response({'status': 'Refund processed and credited to the wallet'})
-
-
     
 @action(detail=False, methods=['post'])
 def razorpay_webhook(self, request):
@@ -853,10 +779,6 @@ def razorpay_webhook(self, request):
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     
 
-
-
-
-# 
 
 class SalesReportViewSet(viewsets.ViewSet):
     permission_classes = [IsAdminUser]
@@ -933,7 +855,9 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Wallet.objects.filter(user=self.request.user)
+        queryset=Wallet.objects.filter(user=self.request.user)
+        print("Wallet Data : ",queryset)
+        return queryset
 
     @action(detail=False, methods=['get'])
     def transactions(self, request):
@@ -951,7 +875,7 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
             
             # Serialize the transactions
             serializer = WalletTransactionSerializer(transactions, many=True)
-            
+            print('wallet_balance', wallet.balance)
             return Response({
                 'wallet_balance': wallet.balance,
                 'transactions': serializer.data
@@ -965,355 +889,3 @@ class WalletViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    # @action(detail=False, methods=['post'])
-    # def create_from_cart(self, request):
-    #     try:
-    #         cart = get_object_or_404(Cart, user=self.request.user)
-            
-    #         if not cart.items.exists():
-    #             return Response(
-    #                 {'error': 'Cart is empty'},
-    #                 status=status.HTTP_400_BAD_REQUEST
-    #             )
-
-    #         address_id = request.data.get('address_id')
-    #         payment_method = request.data.get('payment_method')
-    #         coupon_code = request.data.get('coupon_code')
-
-    #         # Calculate totals
-    #         subtotal = sum(item.get_total_price() for item in cart.items.all())
-    #         total_discount = 0
-    #         coupon_discount = 0
-    #         # Apply coupon if provided
-    #         coupon = None
-    #         if coupon_code:
-    #             try:
-    #                 coupon = Coupon.objects.get(
-    #                     code=coupon_code,
-    #                     is_active=True,
-    #                     valid_from__lte=timezone.now(),
-    #                     valid_until__gte=timezone.now()
-    #                 )
-    #                 if subtotal >= coupon.minimum_purchase:
-    #                     coupon_discount = (subtotal * coupon.discount_percentage) / 100
-    #             except Coupon.DoesNotExist:
-    #                 return Response(
-    #                     {'error': 'Invalid coupon code'},
-    #                     status=status.HTTP_400_BAD_REQUEST
-    #                 )  
-                
-    #         # Verify Razorpay payment if card payment
-    #         if payment_method == 'card':
-    #             payment_data = {
-    #                 'razorpay_payment_id': request.data.get('payment_id'),
-    #                 'razorpay_order_id': request.data.get('razorpay_order_id'),
-    #                 'razorpay_signature': request.data.get('signature')
-    #             }
-                
-    #             try:
-    #                 client.utility.verify_payment_signature(payment_data)
-    #             except razorpay.errors.SignatureVerificationError as e:
-    #                 return Response(
-    #                     {'error': 'Invalid payment signature'}, 
-    #                     status=status.HTTP_400_BAD_REQUEST
-    #                 )
-
-    #         # Create order
-    #         with transaction.atomic():
-    #             order = Order.objects.create(
-    #                 user=self.request.user,
-    #                 address_id=address_id,
-    #                 payment_method=payment_method,
-    #                 subtotal=subtotal,
-    #                 discount_amount=total_discount,
-    #                 coupon_discount=coupon_discount,
-    #                 coupon=coupon,
-    #                 delivery_charges=0,
-    #                 payment_status='completed' if payment_method == 'card' else 'pending'
-    #             )
-
-    #         # Create order items and update stock
-    #         for cart_item in cart.items.all():
-    #             # Calculate item discount
-    #             original_price = cart_item.variant.price * cart_item.quantity
-    #             discount_amount = self.calculate_item_discount(cart_item)
-
-    #             OrderItem.objects.create(
-    #                 order=order,
-    #                 variant=cart_item.variant,
-    #                 product_name=cart_item.variant.product.name,
-    #                 size=cart_item.variant.size.name,
-    #                 color=cart_item.variant.color.name,
-    #                 quantity=cart_item.quantity,
-    #                 original_price=original_price,
-    #                 discount_amount=discount_amount,
-    #                 final_price=original_price - discount_amount
-    #             )
-    #             total_discount += discount_amount
-    #             # Update order with final discount amount
-    #             order.discount_amount = total_discount
-    #             order.save()
-
-    #             # Create coupon usage record if applicable
-    #             if coupon:
-    #                 CouponUsage.objects.create(coupon=coupon, user=self.request.user)                
-    #             # Update stock in a transaction
-    #             with transaction.atomic():
-    #                 variant = cart_item.variant
-    #                 if variant.stock_quantity < cart_item.quantity:
-    #                     raise ValidationError(f"Not enough stock for {variant.product.name}")
-    #                 variant.stock_quantity -= cart_item.quantity
-    #                 variant.save()
-
-    #         # Clear cart
-    #         cart.items.all().delete()
-
-    #         serializer = self.get_serializer(order)
-    #         return Response(serializer.data, status=status.HTTP_201_CREATED)
-            
-    #     except ValidationError as e:
-    #         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    #     except Exception as e:
-    #         logger.error("Error creating order: %s", str(e))
-    #         return Response(
-    #             {'error': "Failed to create order"}, 
-    #             status=status.HTTP_500_INTERNAL_SERVER_ERROR
-    #         )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    # @action(detail=False, methods=['get'], url_path="download_report")
-    # def download_report(self, request):
-    #     try:
-    #         report_type = request.query_params.get('type', 'daily')
-    #         format = request.query_params.get('format', 'pdf')
-    #         start_date = request.query_params.get('start_date')
-    #         end_date = request.query_params.get('end_date')
-
-    #         start_date, end_date = self.get_date_range(report_type, start_date, end_date)
-    #         report_data = self.get_report_data(start_date, end_date)
-
-    #         if end_date <= start_date:
-    #             return Response(
-    #                 {"error": "End date must be after start date"},
-    #                 status=status.HTTP_400_BAD_REQUEST
-    #             )
-
-    #         # Add max range check
-    #         max_days = 365
-    #         if (end_date - start_date).days > max_days:
-    #             return Response(
-    #                 {"error": f"Date range cannot exceed {max_days} days"},
-    #                 status=status.HTTP_400_BAD_REQUEST
-    #             )
-            
-    #         if format.lower() == 'pdf':
-    #             # Create the PDF in memory
-    #             buffer = io.BytesIO()
-    #             p = canvas.Canvas(buffer, pagesize=letter)
-                
-    #             # Add content to PDF
-    #             y = 750  # Starting y position
-    #             p.drawString(100, y, f"Sales Report ({start_date} to {end_date})")
-    #             y -= 30
-                
-    #             p.drawString(100, y, f"Total Sales: ${report_data['total_sales']:.2f}")
-    #             y -= 20
-    #             p.drawString(100, y, f"Total Orders: {report_data['total_orders']}")
-    #             y -= 20
-    #             p.drawString(100, y, f"Total Discount: ${report_data['total_discount']:.2f}")
-    #             y -= 40
-                
-    #             # Product sales table
-    #             p.drawString(100, y, "Product Sales")
-    #             y -= 20
-    #             for product in report_data['products']:
-    #                 p.drawString(100, y, f"{product['product_name']} - ${product['total_sales']:.2f}")
-    #                 y -= 15
-                
-    #             p.showPage()
-    #             p.save()
-                
-    #             # FileResponse sets the Content-Disposition header
-    #             buffer.seek(0)
-    #             return FileResponse(
-    #                 buffer,
-    #                 as_attachment=True,
-    #                 filename=f'sales_report_{start_date}_to_{end_date}.pdf',
-    #                 content_type='application/pdf'
-    #             )
-
-    #         elif format.lower() == 'excel':
-    #             # Create CSV in memory
-    #             buffer = io.StringIO()
-    #             writer = csv.writer(buffer)
-                
-    #             writer.writerow(['Sales Report', f'{start_date} to {end_date}'])
-    #             writer.writerow([])
-    #             writer.writerow(['Total Sales', f"${report_data['total_sales']:.2f}"])
-    #             writer.writerow(['Total Orders', report_data['total_orders']])
-    #             writer.writerow(['Total Discount', f"${report_data['total_discount']:.2f}"])
-    #             writer.writerow([])
-    #             writer.writerow(['Product', 'Category', 'Total Sales', 'Orders'])
-                
-    #             for product in report_data['products']:
-    #                 writer.writerow([
-    #                     product['product_name'],
-    #                     product['variant__product__category__name'],
-    #                     f"${product['total_sales']:.2f}",
-    #                     product['total_orders']
-    #                 ])
-                
-    #             # Create the HttpResponse with CSV content
-    #             response = HttpResponse(
-    #                 buffer.getvalue(),
-    #                 content_type='application/vnd.ms-excel',
-    #             )
-    #             response['Content-Disposition'] = f'attachment; filename=sales_report_{start_date}_to_{end_date}.csv'
-    #             return response
-
-    #         else:
-    #             return Response(
-    #                 {"error": "Invalid format specified"},
-    #                 status=status.HTTP_400_BAD_REQUEST
-    #             )
-
-    #     except Exception as e:
-    #         logger.error(f"Error generating report: {str(e)}")
-    #         return Response(
-    #             {"error": f"Failed to generate report: {str(e)}"},
-    #             status=status.HTTP_500_INTERNAL_SERVER_ERROR
-    #         )
-
-    # def generate_pdf(self, report_data, start_date, end_date):
-    #     buffer = BytesIO()
-    #     doc = SimpleDocTemplate(buffer, pagesize=letter)
-    #     elements = []
-    #     styles = getSampleStyleSheet()
-
-    #     # Add title
-    #     title = Paragraph(f"Sales Report ({start_date} to {end_date})", styles['Heading1'])
-    #     elements.append(title)
-
-    #     # Add summary data
-    #     summary_data = [
-    #         ['Total Sales', f"${report_data['total_sales']:.2f}"],
-    #         ['Total Orders', str(report_data['total_orders'])],
-    #         ['Total Discount', f"${report_data['total_discount']:.2f}"]
-    #     ]
-    #     summary_table = Table(summary_data)
-    #     summary_table.setStyle(TableStyle([
-    #         ('BACKGROUND', (0, 0), (-1, -1), colors.grey),
-    #         ('TEXTCOLOR', (0, 0), (-1, -1), colors.whitesmoke),
-    #         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-    #         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-    #         ('FONTSIZE', (0, 0), (-1, -1), 14),
-    #         ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
-    #         ('TOPPADDING', (0, 0), (-1, -1), 12),
-    #         ('GRID', (0, 0), (-1, -1), 1, colors.black)
-    #     ]))
-    #     elements.append(summary_table)
-
-    #     # Add product sales data
-    #     if report_data['products']:
-    #         elements.append(Paragraph("Product Sales", styles['Heading2']))
-    #         product_data = [['Product', 'Category', 'Total Sales', 'Orders']]
-    #         for product in report_data['products']:
-    #             product_data.append([
-    #                 product['product_name'],
-    #                 product['variant__product__category__name'],
-    #                 f"${product['total_sales']:.2f}",
-    #                 str(product['total_orders'])
-    #             ])
-            
-    #         product_table = Table(product_data)
-    #         product_table.setStyle(TableStyle([
-    #             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-    #             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-    #             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-    #             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-    #             ('FONTSIZE', (0, 0), (-1, 0), 12),
-    #             ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
-    #             ('TOPPADDING', (0, 0), (-1, -1), 12),
-    #             ('GRID', (0, 0), (-1, -1), 1, colors.black)
-    #         ]))
-    #         elements.append(product_table)
-
-    #     doc.build(elements)
-    #     pdf = buffer.getvalue()
-    #     buffer.close()
-
-    #     response = HttpResponse(content_type='application/pdf')
-    #     response['Content-Disposition'] = f'attachment; filename="sales_report_{start_date}_to_{end_date}.pdf"'
-    #     response.write(pdf)
-    #     return response
-
-    # def generate_excel(self, report_data, start_date, end_date):
-    #     response = HttpResponse(content_type='application/vnd.ms-excel')
-    #     response['Content-Disposition'] = f'attachment; filename="sales_report_{start_date}_to_{end_date}.csv"'
-
-    #     writer = csv.writer(response)
-    #     writer.writerow(['Sales Report', f'From {start_date} to {end_date}'])
-    #     writer.writerow([])
-        
-    #     # Summary
-    #     writer.writerow(['Summary'])
-    #     writer.writerow(['Total Sales', f"${report_data['total_sales']:.2f}"])
-    #     writer.writerow(['Total Orders', report_data['total_orders']])
-    #     writer.writerow(['Total Discount', f"${report_data['total_discount']:.2f}"])
-    #     writer.writerow([])
-        
-    #     # Product Sales
-    #     writer.writerow(['Product Sales'])
-    #     writer.writerow(['Product', 'Category', 'Total Sales', 'Orders'])
-    #     for product in report_data['products']:
-    #         writer.writerow([
-    #             product['product_name'],
-    #             product['variant__product__category__name'],
-    #             f"${product['total_sales']:.2f}",
-    #             product['total_orders']
-    #         ])
-
-    #     return response

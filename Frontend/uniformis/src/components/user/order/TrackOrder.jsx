@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { orderApi } from "../../../axiosconfig";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../../components/ui/accordion"
+import { extractErrorMessages } from "../ErrorHandler/ErrorHandler";
 
 export default function TrackOrder() {
   const [orders, setOrders] = useState([]);
@@ -24,7 +25,9 @@ export default function TrackOrder() {
   const [selectedItem, setSelectedItem] = useState(null);
   const [itemCancelReason, setItemCancelReason] = useState("");
   const [itemCancelDialogOpen, setItemCancelDialogOpen] = useState(false);
+  
 
+  
   const fetchOrders = async () => {
     try {
       const response = await orderApi.get("/");
@@ -56,9 +59,15 @@ export default function TrackOrder() {
         );
       }
     } catch (error) {
-      const errorMessage = error.response?.data?.error || "Failed to cancel order";
-      toast.error(errorMessage);
-      console.error("Cancel order error:", error);
+      if (error.response && error.response.data){
+        console.error("Cancel order error:", error.response.data.error);
+        const errorMessage = extractErrorMessages(error.response.data.error).join(", ")
+        toast.error(errorMessage);
+      }
+      else{
+        console.error("Cancel order error:", error);
+      }
+      
     } finally {
       setCancelDialogOpen(false);
     }
