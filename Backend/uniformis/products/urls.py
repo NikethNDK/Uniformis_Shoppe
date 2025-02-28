@@ -61,7 +61,8 @@
 
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import AdminProductViewSet,UserProductViewSet, CategoryViewSet, ReviewViewSet, AddProductView, SizeViewSet, product_detail, product_list,ColorViewSet,UpdateProductView
+# from .views import AdminProductViewSet,UserProductViewSet, CategoryViewSet, ReviewViewSet, AddProductView, SizeViewSet, product_detail, product_list,ColorViewSet,UpdateProductView,CreateReviewView,ProductReviewsView
+from .views import *
 
 router = DefaultRouter()
 # router.register(r'items', ProductViewSet, basename='product')
@@ -97,4 +98,12 @@ urlpatterns = [
     
     # User routes
     path('', include(user_router.urls)),
+
+
+    path('products/<int:product_id>/reviews/', ProductReviewsView.as_view(), name='product-reviews'),
+    path('orders/<int:order_id>/items/<int:item_id>/review/', CreateReviewView.as_view(), name='create-review'),
+    path('orders/<int:order_id>/items/<int:item_id>/reviews/', ProductReviewsView.as_view(), name='order-item-reviews'),
+
+    path('<int:product_id>/reviews/', ProductReviewListView.as_view(), name='product-reviews'),
+    path('<int:product_id>/review-stats/', ProductReviewStatsView.as_view(), name='product-review-stats'),
 ]

@@ -84,7 +84,6 @@ class CartViewSet(viewsets.ModelViewSet):
             )
 
 
-
 class OrderViewSet(viewsets.ModelViewSet):
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
@@ -225,6 +224,10 @@ class OrderViewSet(viewsets.ModelViewSet):
             payment_method = request.data.get('payment_method')
             coupon_code = request.data.get('coupon_code')
             wallet_amount = Decimal(request.data.get('wallet_amount', 0))
+            #new changes
+            razorpay_order_id = request.data.get('razorpay_order_id')
+            payment_id = request.data.get('payment_id')
+
 
             # Validate address
             try:
@@ -248,22 +251,32 @@ class OrderViewSet(viewsets.ModelViewSet):
                         {'error': 'Invalid coupon code'},
                         status=status.HTTP_400_BAD_REQUEST
                     )
+            #Default payment status
+            payment_status = 'pending'
 
             # Verify Razorpay payment if card payment
             if payment_method == 'card'and amounts['final_total'] > 0:
-                payment_data = {
-                    'razorpay_payment_id': request.data.get('payment_id'),
-                    'razorpay_order_id': request.data.get('razorpay_order_id'),
-                    'razorpay_signature': request.data.get('signature')
-                }
+                if payment_id and request.data.get('signature'):
+                    # Payment verification attempt
+                    payment_data = {
+                        'razorpay_payment_id': payment_id,
+                        'razorpay_order_id': razorpay_order_id,
+                        'razorpay_signature': request.data.get('signature')
+                    }
 
-                try:
-                    client.utility.verify_payment_signature(payment_data)
-                except razorpay.errors.SignatureVerificationError:
-                    return Response(
-                        {'error': 'Invalid payment signature'}, 
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
+                    try:
+                        client.utility.verify_payment_signature(payment_data)
+                        payment_status = 'completed'
+                    except razorpay.errors.SignatureVerificationError:
+                            payment_status = 'failed'
+                else:
+                    # No payment data provided
+                    payment_status = 'pending'
+
+            if payment_method == 'cod':
+                payment_status = 'pending'
+            elif amounts['final_total'] == 0 and amounts['wallet_amount_used'] > 0:
+                payment_status = 'completed'
 
             # Create order and items in a transaction
             with transaction.atomic():
@@ -279,7 +292,10 @@ class OrderViewSet(viewsets.ModelViewSet):
                     final_total=amounts['final_total'] + amounts['wallet_amount_used'],
                     delivery_charges=0,
                     wallet_amount_used=amounts['wallet_amount_used'],
-                    payment_status='completed' if (payment_method == 'card' or amounts['final_total'] == 0) else 'pending'
+                    payment_status=payment_status,
+                    razorpay_order_id=razorpay_order_id,
+                    razorpay_payment_id=payment_id
+
                 )
 
                 # Process wallet payment if used
@@ -330,15 +346,17 @@ class OrderViewSet(viewsets.ModelViewSet):
                         final_price=final_price
                     )
 
-                    # Update stock
-                    variant = cart_item.variant
-                    if variant.stock_quantity < cart_item.quantity:
-                        raise ValidationError(f"Not enough stock for {variant.product.name}")
-                    variant.stock_quantity -= cart_item.quantity
-                    variant.save()
+                     # Update stock only for successful/pending payments, not failed ones
+                    if payment_status != 'failed':
+                        variant = cart_item.variant
+                        if variant.stock_quantity < cart_item.quantity:
+                            raise ValidationError(f"Not enough stock for {variant.product.name}")
+                        variant.stock_quantity -= cart_item.quantity
+                        variant.save()
 
-                # Create coupon usage record if applicable
-                if coupon:
+                # Create coupon usage record
+                if coupon and payment_status != 'failed':
+ 
                     # Mark any pending usage as used
                     pending_usage = CouponUsage.objects.filter(
                         coupon=coupon,
@@ -360,7 +378,8 @@ class OrderViewSet(viewsets.ModelViewSet):
                         )
 
                 # Clear cart
-                cart.items.all().delete()
+                if payment_status != 'failed':
+                    cart.items.all().delete()
 
                 serializer = self.get_serializer(order)
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -374,6 +393,95 @@ class OrderViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @action(detail=True,methods=['post'],url_path='retry-payment')
+    def retry_payment(self,request,pk=None):
+        #new payment for razor pay failed orders
+
+        try:
+            order=self.get_object()
+
+            #checking the order eligibility for retry
+            if order.payment_status!='failed' and order.payment_status !='pending':
+                return Response(
+                    {'error':'The order is not eligible for retry'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            if order.payment_method !='card':
+                return Response(
+                    {'error':'Only card payments can be retried'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            amount_to_pay=order.final_total - order.wallet_amount_used
+            if amount_to_pay <=0:
+                return Response(
+                    {'error':'No payment amount due'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            razorpay_order=create_razorpay_order(amount_to_pay)
+
+            #updating the order with new razor pay id
+            order.razorpay_order_id=razorpay_order['id']
+            order.save()
+
+            return Response({
+                'razorpay_order': razorpay_order,
+                'order_id': order.id,
+                'amount': amount_to_pay
+            })
+        
+        except Exception as e:
+            logger.error("Error creating retry payment: %s", str(e))
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    @action(detail=True, methods=['post'], url_path='confirm-retry-payment')
+    def confirm_retry_payment(self, request, pk=None):
+        """Confirm a retried payment with Razorpay verification"""
+        try:
+            order = self.get_object()
+            
+            # Verify Razorpay payment
+            payment_data = {
+                'razorpay_payment_id': request.data.get('payment_id'),
+                'razorpay_order_id': request.data.get('razorpay_order_id'),
+                'razorpay_signature': request.data.get('signature')
+            }
+            
+            try:
+                client.utility.verify_payment_signature(payment_data)
+                
+                # Update order with payment details
+                order.payment_status = 'completed'
+                order.razorpay_payment_id = request.data.get('payment_id')
+                order.save()
+                
+                # Now the order is fully paid, update the status if needed
+                if order.status == 'payment_pending':
+                    order.status = 'processing'
+                    order.save()
+                
+                return Response({
+                    'message': 'Payment successful',
+                    'order_id': order.id
+                })
+                
+            except razorpay.errors.SignatureVerificationError:
+                return Response(
+                    {'error': 'Invalid payment signature'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+        except Exception as e:
+            logger.error("Error confirming retry payment: %s", str(e))
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
     @action(detail=True, methods=['post'], url_path='cancel-item/(?P<item_id>[^/.]+)')
     def cancel_item(self, request, pk=None, item_id=None):
         try:

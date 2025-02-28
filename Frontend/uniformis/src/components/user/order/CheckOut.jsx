@@ -79,16 +79,23 @@ const CheckoutPage = () => {
   // Calculate order totals whenever relevant values change
   useEffect(() => {
     updateOrderSummary()
-  }, [finalTotal, appliedCoupon, useWallet, walletBalance])
+  }, [finalTotal, appliedCoupon, useWallet, walletBalance, paymentMethod])
+
+  // Disable wallet usage when COD is selected
+  useEffect(() => {
+    if (paymentMethod === 'cod' && useWallet) {
+      setUseWallet(false)
+    }
+  }, [paymentMethod])
 
   const updateOrderSummary = () => {
     const discountAmount = totalAmount - finalTotal
     const couponDiscountAmount = appliedCoupon ? appliedCoupon.discount_amount : 0
     let currentFinalTotal = finalTotal - couponDiscountAmount
     
-    // Calculate how much wallet amount can be used
+    // Calculate how much wallet amount can be used (only if payment method is not COD)
     let walletAmount = 0
-    if (useWallet && walletBalance > 0) {
+    if (useWallet && walletBalance > 0 && paymentMethod !== 'cod') {
       walletAmount = Math.min(walletBalance, currentFinalTotal)
       currentFinalTotal -= walletAmount
     }
@@ -171,6 +178,30 @@ const CheckoutPage = () => {
             setLoading(false);
           }
         };
+        
+        // Add handler for modal closure
+        const handleModalClose = async () => {
+          console.log('Payment modal closed');
+          try {
+            // Create order with failed payment status
+            const response = await axiosInstance.post('/orders/orders/create_from_cart/', {
+              address_id: selectedAddress,
+              payment_method: paymentMethod,
+              payment_status: 'failed',  // Explicitly set payment status as failed
+              coupon_code: appliedCoupon ? appliedCoupon.code : null,
+              wallet_amount: useWallet ? walletAmountToUse : 0
+            });
+            
+            console.log('Failed payment order created:', response.data);
+            toast.warning("Payment was not completed. Order saved with failed payment status.");
+            navigate("/user/trackorder");
+          } catch (error) {
+            console.error('Error creating failed payment order:', error);
+            toast.error(error.response?.data?.error || "Failed to create order");
+          } finally {
+            setLoading(false);
+          }
+        };
 
         const options = {
           key: 'rzp_test_MIlvGi78yuccr2',
@@ -186,10 +217,7 @@ const CheckoutPage = () => {
           },
           handler: handlePaymentSuccess,
           modal: {
-            ondismiss: function() {
-              console.log('Payment modal closed');
-              setLoading(false);
-            }
+            ondismiss: handleModalClose  // Handle modal closure
           },
           theme: {
             color: "#3399cc"
@@ -202,7 +230,9 @@ const CheckoutPage = () => {
         rzp.on('payment.failed', function(response) {
           console.error('Payment failed:', response.error);
           toast.error(response.error.description || "Payment failed");
-          setLoading(false);
+          
+          // Create order with failed payment status
+          handleModalClose();
         });
 
         console.log('Opening Razorpay modal...');
@@ -298,7 +328,11 @@ const CheckoutPage = () => {
           <Card>
             <CardHeader>
               <CardTitle>Wallet</CardTitle>
-              <CardDescription>Apply wallet balance to your order</CardDescription>
+              <CardDescription>
+                {paymentMethod === 'cod' 
+                  ? "Wallet payment is not available with Cash on Delivery" 
+                  : "Apply wallet balance to your order"}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -312,22 +346,26 @@ const CheckoutPage = () => {
                     <Checkbox 
                       id="use-wallet" 
                       checked={useWallet}
-                      disabled={walletBalance <= 0}
+                      disabled={walletBalance <= 0 || paymentMethod === 'cod'}
                       onCheckedChange={setUseWallet}
                     />
-                    <Label htmlFor="use-wallet">
+                    <Label htmlFor="use-wallet" className={paymentMethod === 'cod' ? "text-gray-400" : ""}>
                       Use wallet balance
                       {useWallet && walletAmountToUse > 0 && ` (₹${walletAmountToUse.toFixed(2)})`}
                     </Label>
                   </div>
                 </div>
                 
+                {paymentMethod === 'cod' && (
+                  <p className="text-amber-600 text-sm">Wallet payment cannot be combined with Cash on Delivery</p>
+                )}
+                
                 {useWallet && walletAmountToUse > 0 && (
                   <div className="text-sm">
                     {walletAmountToUse >= orderSummary.finalTotal + orderSummary.couponDiscount ? (
                       <p className="text-green-600">Your entire order will be paid using wallet balance.</p>
                     ) : (
-                      <p>₹{walletAmountToUse.toFixed(2)} will be used from your wallet. Remaining ₹{orderSummary.finalTotal.toFixed(2)} will be paid via selected payment method.</p>
+                      <p>₹{walletAmountToUse.toFixed(2)} will be used from your wallet. Remaining amount of ₹{orderSummary.finalTotal.toFixed(2)} will be paid via card payment.</p>
                     )}
                   </div>
                 )}
@@ -348,7 +386,13 @@ const CheckoutPage = () => {
             <CardContent>
               <RadioGroup 
                 value={paymentMethod} 
-                onValueChange={setPaymentMethod} 
+                onValueChange={(value) => {
+                  setPaymentMethod(value);
+                  // If switching to COD, disable wallet
+                  if (value === 'cod') {
+                    setUseWallet(false);
+                  }
+                }}
                 className="space-y-4"
                 disabled={useWallet && orderSummary.finalTotal === 0}
               >
@@ -432,7 +476,7 @@ const CheckoutPage = () => {
             </CardContent>
             <CardFooter>
               <Button className="w-full" onClick={handlePlaceOrder} disabled={loading || !selectedAddress}>
-                {loading ? "Placing Order..." : `Place Order${orderSummary.finalTotal === 0 ? " using Wallet" : ""}`}
+                {loading ? "Placing Order..." : `Place Order${orderSummary.finalTotal === 0 && useWallet ? " using Wallet" : ""}`}
               </Button>
             </CardFooter>
           </Card>

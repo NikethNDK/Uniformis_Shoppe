@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import Category, Product, Review, ProductImage, Size,Color,ProductSizeColor
 from offers.models import Offer
 from django.utils import timezone
+from orders.models import OrderItem
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -15,11 +16,13 @@ class SizeSerializer(serializers.ModelSerializer):
 
 class ReviewSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.username', read_only=True)
+    product_id= serializers.IntegerField(source='product.id',read_only=True)
+    order_item_id=serializers.IntegerField(source="order_item.id",read_only=True)
 
     class Meta:
         model = Review
-        fields = ['id', 'user_name', 'rating', 'comment', 'created_at']
-        read_only_fields = ['user']
+        fields = ['id', 'user_name','product_id', 'rating',  'order_item_id','comment', 'created_at']
+        read_only_fields = ['user','order_item','product']
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
