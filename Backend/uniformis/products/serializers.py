@@ -195,3 +195,13 @@ class ProductDetailSerializer(ProductSerializer):
 
     class Meta(ProductSerializer.Meta):
         fields = ProductSerializer.Meta.fields + ['reviews','size_color_options']
+
+class AdminReviewSerializer(serializers.ModelSerializer):
+    user_name=serializers.CharField(source='user.username',read_only=True)
+    first_name=serializers.CharField(source='user_first_name',read_only=True)
+    last_name=serializers.CharField(source='user_last_name',read_only=True)
+    product_name=serializers.CharField(source='product.name',read_only=True)
+
+    class Meta:
+        model=Review
+        fields=['id','user_name','product_name','rating','comment','created_at','first_name','last_name'  ]

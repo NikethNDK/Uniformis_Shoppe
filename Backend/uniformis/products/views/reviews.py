@@ -329,3 +329,48 @@ class ProductReviewStatsView(APIView):
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+class AdminReviewPagination(PageNumberPagination):
+    page_size=10
+    page_size_query_param='page_size'
+    max_page_size=100
+
+class AdminReviewListView(APIView):
+    permission_classes = [IsAdminUser]
+    pagination_class = AdminReviewPagination
+
+    def get(self, request):
+        try:
+            search_query = request.query_params.get('search', '')
+            reviews = Review.objects.select_related('user', 'product').order_by('-created_at')
+
+            if search_query:
+                reviews = reviews.filter(
+                    Q(user__username__icontains=search_query) |
+                    Q(product__name__icontains=search_query) |
+                    Q(comment__icontains=search_query)
+                )
+            
+            paginator = self.pagination_class()
+            paginated_reviews = paginator.paginate_queryset(reviews, request)
+
+            serializer = AdminReviewSerializer(paginated_reviews, many=True)
+            return paginator.get_paginated_response(serializer.data)
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR    
+            )
+
+class AdminReviewDeleteView(APIView):
+    permission_classes = [IsAdminUser]
+    
+    def delete(self, request, review_id):
+        try:
+            review = get_object_or_404(Review, id=review_id)
+            review.delete()
+            return Response(status=status.HTTP_200_OK)
+        except Review.DoesNotExist:
+            return Response(
+                {'error': 'Review not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )

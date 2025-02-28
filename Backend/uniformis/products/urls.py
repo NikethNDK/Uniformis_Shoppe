@@ -89,6 +89,11 @@ user_router.register('reviews', ReviewViewSet)
 urlpatterns = [
     path('admin/addproduct/', AddProductView.as_view(), name='add-product'),
      path('admin/updateproduct/<int:pk>/', UpdateProductView.as_view(), name='update-product'),
+    path('admin/reviews/', AdminReviewListView.as_view(), name='admin-review-list'),
+    path('admin/reviews/<int:review_id>/', AdminReviewDeleteView.as_view(), name='admin-review-delete'),
+
+    
+    
     path('', product_list, name='product-list'),
     path('<int:pk>/', product_detail, name='product-detail'),
     # path('', include(router.urls)),

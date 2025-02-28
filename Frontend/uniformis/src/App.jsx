@@ -48,6 +48,7 @@ import Loading from "./components/ui/Loading.jsx";
 import { useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import ProtectedRoute from "./protectedRoute.jsx";
+import AdminReviews from "./components/admin/ReviewManagement/ReviewManagement.jsx";
 
 function App() {
   const dispatch = useDispatch()
@@ -82,6 +83,7 @@ function App() {
           <Route path='couponmangement' element={<CouponManagement/>}/>
           <Route path='salesreport' element={<SalesReport/>}/>
           <Route path='bannermanagement' element={<BannerManagement/>}/>
+          <Route path='reviewmanagement' element={<AdminReviews/>}/>
         </Route>
         <Route path="/admin/editUser" element={<AdminEditUser />} />
         

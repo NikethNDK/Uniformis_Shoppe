@@ -1,9 +1,8 @@
-"use client"
 
 import { useState, useEffect } from "react"
 import axios from "axios"
-import { useToast } from "@/components/ui/use-toast"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { toast } from "react-toastify"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,8 +13,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { Input } from "@/components/ui/input"
+} from "../../components/ui/alert-dialog"
+import { Input } from "../../components/ui/input"
 import {
   Pagination,
   PaginationContent,
@@ -24,7 +23,7 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-} from "@/components/ui/pagination"
+} from "../../components/ui/pagination"
 import { Star, Trash2 } from "lucide-react"
 import { productApi } from "../../../adminaxiosconfig"
 
@@ -35,7 +34,6 @@ const AdminReviews = () => {
   const [totalPages, setTotalPages] = useState(1)
   const [searchQuery, setSearchQuery] = useState("")
   const [deleteReviewId, setDeleteReviewId] = useState(null)
-  const { toast } = useToast()
 
   useEffect(() => {
     fetchReviews()
@@ -44,24 +42,20 @@ const AdminReviews = () => {
   const fetchReviews = async () => {
     try {
       setLoading(true)
-      const response = await productApi.get(`/admin/reviews/?page=${currentPage}&search=${searchQuery}`)
+      const response = await productApi.get(`/reviews/?page=${currentPage}&search=${searchQuery}`)
       setReviews(response.data.results)
       setTotalPages(Math.ceil(response.data.count / 10))
       setLoading(false)
     } catch (error) {
       console.error("Error fetching reviews:", error)
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to fetch reviews",
-      })
+      toast.error("Failed to fetch reviews")
       setLoading(false)
     }
   }
 
   const handleDelete = async (reviewId) => {
     try {
-      await productApi.delete(`/admin/reviews/${reviewId}/`)
+      await productApi.delete(`/reviews/${reviewId}/`)
       toast({
         title: "Success",
         description: "Review deleted successfully",
@@ -69,7 +63,7 @@ const AdminReviews = () => {
       fetchReviews()
     } catch (error) {
       console.error("Error deleting review:", error)
-      toast({
+      toast.error({
         variant: "destructive",
         title: "Error",
         description: "Failed to delete review",
