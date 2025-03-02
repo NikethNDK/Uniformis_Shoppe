@@ -13,6 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Checkbox } from "@/components/components/ui/checkbox"
 import { createOrder } from "../../../redux/order/orderSlice"
 import Razorpay from 'react-razorpay';
+import AddressFormDialog from "./AddressFormDialog"
+
 
 const CheckoutPage = () => {
   const navigate = useNavigate()
@@ -38,6 +40,7 @@ const CheckoutPage = () => {
 
   const { items, totalAmount, finalTotal } = useSelector((state) => state.cart)
   const deliveryCharges = 0 
+  const [showAddressForm, setShowAddressForm] = useState(false)
 
   const fetchAddresses = async () => {
     try {
@@ -202,9 +205,9 @@ const CheckoutPage = () => {
             setLoading(false);
           }
         };
-
+ 
         const options = {
-          key: 'rzp_test_MIlvGi78yuccr2',
+          key:import.meta.env.REACT_APP_RAZORPAY_KEY_ID,
           amount: orderData.amount,  
           currency: orderData.currency,
           name: "Uniformis Shoppe",
@@ -276,6 +279,15 @@ const CheckoutPage = () => {
     }
   }, [useWallet, walletAmountToUse, finalTotal, appliedCoupon]);
 
+
+const handleAddressAdded = (newAddress) => {
+  // Fetch the updated list of addresses
+  fetchAddresses()
+  // Select the newly created address
+  setSelectedAddress(newAddress.id)
+}
+
+
   if (!items || items.length === 0) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -318,9 +330,9 @@ const CheckoutPage = () => {
                   </div>
                 ))}
               </RadioGroup>
-              <Button variant="outline" className="mt-4" onClick={() => navigate("/user/address/add")}>
-                Add New Address
-              </Button>
+              <Button variant="outline" className="mt-4" onClick={() => setShowAddressForm(true)}>
+  Add New Address
+</Button>
             </CardContent>
           </Card>
 
@@ -513,6 +525,13 @@ const CheckoutPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AddressFormDialog 
+  open={showAddressForm} 
+  onOpenChange={setShowAddressForm} 
+  onAddressAdded={handleAddressAdded}
+  axiosInstance={axiosInstance}
+/>
     </div>
   )
 }

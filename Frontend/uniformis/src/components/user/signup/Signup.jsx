@@ -31,18 +31,32 @@ const Signup = () => {
   };
 
   const validate = () => {
-    let tempErrors = {};
-    if (!formData.firstName.trim()) {
-      tempErrors.firstName = "First name is required";
-    } else if (formData.firstName.includes('.')) {
-      tempErrors.firstName = "First name cannot contain a dot (.)";
-    }
+    const nameRegex = /^[A-Za-z]+(?: [A-Za-z]+)?$/; 
 
-    if (!formData.lastName.trim()) {
-      tempErrors.lastName = "Last name is required";
-    } else if (formData.lastName.includes('.')) {
-      tempErrors.lastName = "Last name cannot contain a dot (.)";
-    }
+    const hasSameCharacters = (name) => {
+      return name.split("").every((char) => char === name[0]);
+};
+
+    let tempErrors = {};
+  if (!formData.firstName.trim()) {
+  tempErrors.firstName = "First name is required";
+} else if (formData.firstName.includes(".")) {
+  tempErrors.firstName = "First name cannot contain a dot (.)";
+} else if (!nameRegex.test(formData.firstName)) {
+  tempErrors.firstName = "First name can only contain letters and a single space";
+} else if (hasSameCharacters(formData.firstName.replace(/\s/g, ""))) {
+  tempErrors.firstName = "First name cannot have all identical characters";
+}
+
+if (!formData.lastName.trim()) {
+  tempErrors.lastName = "Last name is required";
+} else if (formData.lastName.includes(".")) {
+  tempErrors.lastName = "Last name cannot contain a dot (.)";
+} else if (!nameRegex.test(formData.lastName)) {
+  tempErrors.lastName = "Last name can only contain letters and a single space";
+} else if (hasSameCharacters(formData.lastName.replace(/\s/g, ""))) {
+  tempErrors.lastName = "Last name cannot have all identical characters";
+} 
 
     if (!formData.email.trim()) {
       tempErrors.email = "Email is required";

@@ -89,16 +89,19 @@ const addResponseInterceptor = (instance) => {
           return instance(originalRequest);
         } catch (refreshError) {
           processQueue(refreshError);
-          window.location.href = '/admin/login';
-          return Promise.reject(refreshError);
-        } finally {
-          isRefreshing = false;
-        }
+          if (!originalRequest.url.includes('check-user-auth-status') && 
+          !originalRequest.url.includes('check-admin-auth-status')) {
+        window.location.href = '/admin/login';
       }
-
-      return Promise.reject(error);
+      return Promise.reject(refreshError);
+    } finally {
+      isRefreshing = false;
     }
-  );
+  }
+
+  return Promise.reject(error);
+}
+);
 };
 
 // Apply interceptors to all instances

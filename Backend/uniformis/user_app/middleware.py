@@ -11,8 +11,17 @@ User = get_user_model()
 
 class AccessTokenMiddleware(MiddlewareMixin):
     def process_request(self, request):
+        
+        public_paths = [
+            '/api/token/refresh/',
+            '/api/login/',
+            '/api/signup/',
+            '/api/check-user-auth-status/',
+            '/api/check-admin-auth-status/',
+            '/api/check-auth-status/'
+        ]
         # Skip middleware for refresh token endpoint
-        if request.path == '/api/token/refresh/':
+        if request.path in public_paths:
             return None
             
         access_token = request.COOKIES.get('access_token')

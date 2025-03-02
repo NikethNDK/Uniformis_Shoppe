@@ -43,24 +43,50 @@ import Wishlist from "./components/user/order/Wishlist.jsx";
 import Wallet from "./components/user/wallet/Wallet.jsx";
 import BannerManagement from "./components/admin/Banner/BannerManagement.jsx";
 import { useDispatch,useSelector } from "react-redux";
-import { checkAuthStatus } from "./redux/auth/authSlice.jsx";
+import { checkAuthStatus,checkAdminAuthStatus,checkUserAuthStatus } from "./redux/auth/authSlice.jsx";
 import Loading from "./components/ui/Loading.jsx";
 import { useEffect } from "react";
 import { Navigate } from "react-router-dom";
-import ProtectedRoute from "./protectedRoute.jsx";
+
+import { UserProtectedRoute, AdminProtectedRoute, PublicRoute } from "./ProtectedRoutes.jsx"
 import AdminReviews from "./components/admin/ReviewManagement/ReviewManagement.jsx";
+import NotFoundPage from "./components/common/NotFoundPage.jsx";
+
+import { debounce } from 'lodash';
+import { useCallback } from 'react';
 
 function App() {
   const dispatch = useDispatch()
-  // const { isAuthenticated, isLoading } = useSelector((state) => state.auth)
+    const { isLoading } = useSelector((state) => state.auth);
 
-  useEffect(() => {
-    // dispatch(checkAuthStatus())
-  }, [])
-
-  // if (isLoading) {
-  //   return <Loading />
-  // }
+    // Create a debounced auth check function
+    const debouncedCheckAuth = useCallback(
+      debounce(async () => {
+        try {
+          await dispatch(checkUserAuthStatus()).unwrap();
+        } catch (error) {
+          try {
+            await dispatch(checkAdminAuthStatus()).unwrap();
+          } catch (adminError) {
+            console.log("User is not authenticated");
+          }
+        }
+      }, 1000), // Only run once every second at most
+      [dispatch]
+    );
+  
+    useEffect(() => {
+      // Initial auth check with a slight delay to ensure everything is loaded
+      const timer = setTimeout(() => {
+        debouncedCheckAuth();
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }, [debouncedCheckAuth]);
+    
+  if (isLoading) {
+    return <Loading />
+  }
   return (
     <>
      <QueryClientProvider client={queryClient}>
@@ -69,7 +95,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         {/* Admin routes  */}
-        <Route path="/admin" element={<AdminLayout/>}>
+        <Route path="/admin" element={<AdminProtectedRoute><AdminLayout/></AdminProtectedRoute>}>
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="products" element={<ProductList />} />
           <Route path="products/add" element={<AddProduct />} />
@@ -85,19 +111,26 @@ function App() {
           <Route path='bannermanagement' element={<BannerManagement/>}/>
           <Route path='reviewmanagement' element={<AdminReviews/>}/>
         </Route>
-        <Route path="/admin/editUser" element={<AdminEditUser />} />
-        
-        <Route path="/admin/create-user" element={<CreateUserPage />} />
-        <Route path="/admin/login" element={<AdminLogin />} />
 
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
+
+        {/* <Route path="/admin/editUser" element={<AdminEditUser />} />
+        
+        <Route path="/admin/create-user" element={<CreateUserPage />} /> */}
+
+
+        <Route path="/admin/login" element={<PublicRoute adminRedirect="/admin/dashboard"><AdminLogin /></PublicRoute>}  />
+
+          {/* User Public Routes */}
+            <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
+            <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
+            <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
+            <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+            <Route path="/" element={<PublicRoute><Login /></PublicRoute>} />
+        
         
         {/* User routes */}
-        
-        <Route path='/user' element={<UserLayout/>}>
-          <Route path="homepage" element={<ProtectedRoute><ProductDisplay /> </ProtectedRoute>} />
-          {/* <Route path="homepage" element={isAuthenticated ? <ProductDisplay /> : <Navigate to="/login" />} /> */}
+         <Route path='/user' element={<UserProtectedRoute><UserLayout/></UserProtectedRoute>}>
+          <Route path="homepage" element={<ProductDisplay />} />
           <Route path="product/:id" element={<ProductDetail />} />
           <Route path="profile-information" element={<ProfileInformation />}/>
           <Route path="address" element={<AddressManagement />} />
@@ -110,14 +143,12 @@ function App() {
           <Route path="wallet" element={<Wallet />}/>
         </Route>
 
-        <Route path="/category/:id" element={<CategoryPage />} />
-        <Route path="/user-profile" element={<UserProfile />} />
+        {/* <Route path="/category/:id" element={<CategoryPage />} /> */}
+        {/* <Route path="/user-profile" element={<UserProfile />} /> */}
         {/* <Route path="/home" element={<Home />} /> */}
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/login" element={<Login />} />
-        {/* <Route path="/login" element={isAuthenticated ? <Navigate to="/user/homepage" /> : <Login />} /> */}
-        <Route path="/" element={<Login />} />
+        
         <Route path="/defaultadmin" element={<AdminRedirect />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>
     </QueryClientProvider>

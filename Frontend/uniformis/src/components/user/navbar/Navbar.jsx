@@ -135,14 +135,14 @@ export default function Navbar() {
         </div>
 
         <nav className="flex items-center justify-center gap-6 pb-4">
-          <Link to="/user/home" className="text-sm font-medium transition-colors hover:text-primary">
+          <Link to="/user/home" className="text-sm font-medium transition-colors hover:text-primary no-underline">
             Home
           </Link>
           {categories?.map((category) => (
             <Link
               key={category.id}
               to={`/user/category/${category.id}`}
-              className="text-sm font-medium transition-colors hover:text-primary"
+              className="text-sm font-medium transition-colors hover:text-primary no-underline"
             >
               {category.name}
             </Link>

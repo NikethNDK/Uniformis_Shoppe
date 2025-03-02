@@ -11,7 +11,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth import authenticate
 from .serializers import UserProfileSerializer
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAdminUser,IsAuthenticated,AllowAny
+from rest_framework.permissions import IsAdminUser,IsAuthenticated,AllowAny,BasePermission
 from django.middleware.csrf import get_token
 from django.http import JsonResponse
 from .utils import generate_otp, send_otp_email
@@ -174,9 +174,8 @@ class TokenRefreshView(SimpleJWTTokenRefreshView):
 
         if not refresh_token:
             return Response({
-                'type': 'TOKEN_ERROR',
                 'message': 'Refresh token not found'
-            }, status=status.HTTP_401_UNAUTHORIZED)
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         
         data = {'refresh': refresh_token}
@@ -378,6 +377,7 @@ class ResendOTPView(APIView):
                 'message': 'User not found',
                 'details': {'error': 'Invalid user ID'}
             }, status=status.HTTP_404_NOT_FOUND)
+
 
 class AdminTokenObtainView(TokenObtainPairView):
     def post(self, request):
@@ -675,3 +675,69 @@ def check_auth_status(request):
     """
     user = request.user  # DRF automatically sets user if token is valid
     return Response({"isAuthenticated": True, "user": {"id": user.id, "username": user.username}})
+
+class OptionalAuthentication(BasePermission):
+    """
+    Custom permission to allow both authenticated and unauthenticated access
+    but provide different responses.
+    """
+    def has_permission(self, request, view):
+        # Always return True to let the view handle authentication logic
+        return True
+
+# for users
+class CheckUserAuthStatusView(APIView):
+    permission_classes = [OptionalAuthentication]
+
+    def get(self, request):
+        # Check if user is authenticated
+        if not request.user.is_authenticated:
+            # Return a 200 response for unauthenticated users
+            return Response({
+                "authenticated": False,
+                "message": "User not authenticated"
+            }, status=status.HTTP_200_OK)
+
+        user = request.user
+        
+        # Now we know user is authenticated, so it's safe to check is_superadmin
+        if user.is_superadmin:
+            return Response(
+                {"message": "Invalid user type"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        return Response({
+            "user": UserSerializer(user).data,
+            "authenticated": True 
+        })
+# for admins
+class CheckAdminAuthStatusView(APIView):
+    permission_classes = [OptionalAuthentication]
+
+    def get(self, request):
+        # Check if user is authenticated
+        if not request.user.is_authenticated:
+            # Return a 200 response for unauthenticated users
+            return Response({
+                "authenticated": False,
+                "message": "Admin not authenticated"
+            }, status=status.HTTP_200_OK)
+
+        user = request.user
+        
+        # Now we know user is authenticated, so it's safe to check is_superadmin
+        if not user.is_superadmin:
+            return Response({
+                "message": "Insufficient Permission"
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        return Response({
+            "user": {
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'is_superadmin': user.is_superadmin,
+            },
+            "authenticated": True
+        })

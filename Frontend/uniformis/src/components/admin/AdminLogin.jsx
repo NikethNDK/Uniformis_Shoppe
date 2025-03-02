@@ -67,7 +67,7 @@
 import React, { useState } from "react";
 import { useDispatch } from "react-redux";
 import { useNavigate, Link } from "react-router-dom";
-import { setAuthData } from "../../redux/auth/authSlice";
+import { setAdminAuth } from "../../redux/auth/authSlice";
 import adminAxiosInstance from "../../adminaxiosconfig";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -97,7 +97,7 @@ const AdminLogin = () => {
       // Check login was successful
       if (response.data.status === 'success') {
         // Dispatch to Redux store
-        dispatch(setAuthData({
+        dispatch(setAdminAuth({
           user: {
             ...response.data.user,
             isAdmin: true // to distinguish admin users

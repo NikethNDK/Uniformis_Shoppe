@@ -85,7 +85,7 @@ useEffect(() => {
               <li key={item.path}>
                 <Link
                   to={item.path}
-                  className={`flex items-center gap-3 px-1 py-2 rounded-md transition-colors ${
+                  className={`flex items-center gap-3 px-1 py-2 rounded-md transition-colors no-underline ${
                     isActive ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-100"
                   }`}
                 >
