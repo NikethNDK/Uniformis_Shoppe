@@ -83,7 +83,7 @@ function App() {
       
       return () => clearTimeout(timer);
     }, [debouncedCheckAuth]);
-    
+
   if (isLoading) {
     return <Loading />
   }
@@ -130,7 +130,7 @@ function App() {
         
         {/* User routes */}
          <Route path='/user' element={<UserProtectedRoute><UserLayout/></UserProtectedRoute>}>
-          <Route path="homepage" element={<ProductDisplay />} />
+          {/* <Route path="homepage" element={<ProductDisplay />} /> */}
           <Route path="product/:id" element={<ProductDetail />} />
           <Route path="profile-information" element={<ProfileInformation />}/>
           <Route path="address" element={<AddressManagement />} />

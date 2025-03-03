@@ -5,9 +5,11 @@ import {authApi} from '../../../axiosconfig';
 import { setAuthData } from '../../../redux/auth/authSlice'; 
 import './Signup.css';
 import OTPVerificationModal from '../OTPVerificationModal/OTPVerificationModal';
+import Loading from "../../ui/Loading";
 
 const Signup = () => {
   const [showOTPModal, setShowOTPModal] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState(null);
   const [formData, setFormData] = useState({
     firstName: '',
@@ -54,8 +56,8 @@ if (!formData.lastName.trim()) {
   tempErrors.lastName = "Last name cannot contain a dot (.)";
 } else if (!nameRegex.test(formData.lastName)) {
   tempErrors.lastName = "Last name can only contain letters and a single space";
-} else if (hasSameCharacters(formData.lastName.replace(/\s/g, ""))) {
-  tempErrors.lastName = "Last name cannot have all identical characters";
+// } else if (hasSameCharacters(formData.lastName.replace(/\s/g, ""))) {
+//   tempErrors.lastName = "Last name cannot have all identical characters";
 } 
 
     if (!formData.email.trim()) {
@@ -95,6 +97,7 @@ if (!formData.lastName.trim()) {
     e.preventDefault();
     if (validate()) {
       try {
+        setLoading(true)
         const response = await authApi.post('/signup/', {
           first_name: formData.firstName,
           last_name: formData.lastName,
@@ -103,9 +106,9 @@ if (!formData.lastName.trim()) {
           email: formData.email,
           password: formData.password,
         });
-  
-        setShowOTPModal(true);
         setUserId(response.data.user_id);
+        setShowOTPModal(true);
+        
       }
       catch (error) {
         if (error.response) {
@@ -121,12 +124,16 @@ if (!formData.lastName.trim()) {
             submit: 'Network error. Please try again.'
           }));
         }
+        setLoading(false);
       }
     }
   };
 
   return (
     <div className="signup-container">
+    {loading ? (
+      <Loading /> // Show the Loading component when loading is true
+    ) : (
       <div className="signup-box">
         <h2>Create Account</h2>
         <p>Please fill in the details to register</p>
@@ -218,7 +225,9 @@ if (!formData.lastName.trim()) {
             {errors.confirmPassword && <span className="error">{errors.confirmPassword}</span>}
           </div>
 
-          <button type="submit" className="signup-button">
+          {errors.submit && <div className="error general-error">{errors.submit}</div>}
+
+          <button type="submit" className="signup-button" disabled={loading}>
             Create Account
           </button>
         </form>
@@ -227,23 +236,25 @@ if (!formData.lastName.trim()) {
           <p>Already have an account? <Link to="/login">Login here</Link></p>
         </div>
       </div>
-      {showOTPModal && (
-  <OTPVerificationModal
-    userId={userId}
-    onSuccess={(data) => {
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('refresh_token', data.refresh_token);
-      dispatch(setAuthData(data));
-      navigate('/login');
-    }}
-    onCancel={() => {
-      setShowOTPModal(false);
-      navigate('/login');
-    }}
-  />
-)}
-    </div>
-  );
+    )}
+    {showOTPModal && (
+      <OTPVerificationModal
+        userId={userId}
+        onSuccess={(data) => {
+          // localStorage.setItem('token', data.token);
+          // localStorage.setItem('refresh_token', data.refresh_token);
+          // dispatch(setAuthData(data));
+          navigate('/login');
+        }}
+        onCancel={() => {
+          setShowOTPModal(false);
+          setLoading(false); // Make sure to set loading to false when canceling
+          navigate('/login');
+        }}
+      />
+    )}
+  </div>
+);
 };
 
 export default Signup;

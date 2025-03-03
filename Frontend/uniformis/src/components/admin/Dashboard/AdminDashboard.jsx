@@ -316,7 +316,7 @@ const Dashboard = () => {
                 <FaShoppingCart className="text-purple-600 text-xl" />
               </div>
               <div>
-                <h3 className="text-gray-500 text-sm">Yearly Net Sales</h3>
+                <h3 className="text-gray-500 text-sm">Net Annual Sales</h3>
                 <p className="text-2xl font-bold">₹{yearlySales.toLocaleString()}</p>
               </div>
             </div>

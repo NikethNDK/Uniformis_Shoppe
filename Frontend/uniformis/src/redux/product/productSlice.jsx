@@ -88,7 +88,7 @@ const productSlice = createSlice({
       .addCase(fetchProducts.fulfilled, (state, action) => {
         state.status = "succeeded"
         state.items = action.payload.results
-        state.totalPages = Math.ceil(action.payload.count / 6)
+        state.totalPages = Math.ceil(action.payload.count / 10)
         state.currentPage = action.payload.current_page
       })
       .addCase(fetchProducts.rejected, (state, action) => {

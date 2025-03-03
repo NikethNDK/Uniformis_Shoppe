@@ -60,7 +60,7 @@ export const AdminProtectedRoute = ({ children }) => {
 
   // If authenticated as regular user, redirect to user homepage
   if (userType === 'user') {
-    return <Navigate to="/user/homepage" replace />;
+    return <Navigate to="/user/home" replace />;
   }
 
   // User is authenticated as admin
@@ -68,7 +68,7 @@ export const AdminProtectedRoute = ({ children }) => {
 };
 
 // Public route - only accessible when NOT authenticated
-export const PublicRoute = ({ children, userRedirect = "/user/homepage", adminRedirect = "/admin/dashboard" }) => {
+export const PublicRoute = ({ children, userRedirect = "/user/home", adminRedirect = "/admin/dashboard" }) => {
   const { isAuthenticated, isLoading, userType } = useSelector((state) => state.auth);
 
   if (isLoading) {

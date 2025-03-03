@@ -123,7 +123,7 @@ const CheckoutPage = () => {
       // Get the current cart total for validation
       const response = await axiosInstance.post('/offers/apply_coupons/', {
         code: couponCode,
-        total_amount: finalTotal // Send the cart total for minimum purchase validation
+        total_amount: finalTotal // to validate min purchase
       });
       
       setAppliedCoupon(response.data);

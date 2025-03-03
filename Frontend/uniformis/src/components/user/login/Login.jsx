@@ -53,7 +53,7 @@ const Login = () => {
 
         dispatch(fetchUserProfile());
         toast.success("Login successful!");
-        navigate("/user/homepage");
+        navigate("/user/home");
       }
     } catch (error) {
       console.log("Login error:", error);
@@ -94,6 +94,7 @@ const Login = () => {
       script.onload = () => {
         // Initialize Google Identity Services
         window.google.accounts.id.initialize({
+          // client_id:import.meta.env.GOOGLE_CLIENT_ID,
           client_id:
             "447562974245-n3dkhp35abet7aqdvfqv8flgkd39nai0.apps.googleusercontent.com",
           callback: handleCredentialResponse,
@@ -128,43 +129,73 @@ const Login = () => {
     console.log("Modal state changed:", { showOTPModal, userId });
   }, [showOTPModal, userId]);
 
-  //   const handleCredentialResponse = async (response) => {
-  //     try {
-  //       const backendResponse = await axiosInstance.post('/google_login/', {
-  //         credential: response.credential // Send the credential token to your backend
-  //       });
-  //       dispatch(setAuthData(backendResponse.data));
-  //       dispatch(fetchUserProfile())
-  //       setError('');
-  //       navigate('/user/homepage');
-  //     } catch (error) {
-  //       console.error('Error authenticating with backend:', error);
 
-  //     }
-  //   };
   const handleCredentialResponse = async (response) => {
-    try {
-      const backendResponse = await axiosInstance.post("/google_login/", {
-        credential: response.credential,
-      });
+  try {
+    setLoading(true);
+    console.log("Google response received:", response.credential.substring(0, 20) + "...");
+    
+    const backendResponse = await axiosInstance.post("/google_login/", {
+      credential: response.credential,
+    });
+    
+    console.log("Backend response:", backendResponse.data);
 
-      if (backendResponse.data.type === "SUCCESS") {
-        dispatch(setAuthData(backendResponse.data.data));
-        dispatch(fetchUserProfile());
-        localStorage.setItem("user",JSON.stringify(backendResponse.data.data))
-        localStorage.setItem("isAuthenticated",true)
-        toast.success("Login successful!");
-        navigate("/user/homepage");
-      } else {
-        toast.error(backendResponse.data.message);
-      }
-    } catch (error) {
-      console.error("Error authenticating with Google:", error);
-      toast.error(
-        error.response?.data?.message || "Failed to authenticate with Google"
+    if (backendResponse.data.type === "SUCCESS") {
+      // Store user data in localStorage
+      localStorage.setItem("user", JSON.stringify(backendResponse.data.data.user));
+      localStorage.setItem("isAuthenticated", "true");
+      
+      // Update Redux state
+      dispatch(
+        setAuthData({
+          user: backendResponse.data.data.user,
+          isAuthenticated: true,
+        })
       );
+      
+      // Fetch user profile
+      dispatch(fetchUserProfile());
+      
+      toast.success("Login successful!");
+      
+      // Add a small delay before navigation
+      setTimeout(() => {
+        navigate("/user/home");
+      }, 500);
+    } else {
+      const errorMessage = backendResponse.data.message || "Authentication failed";
+      console.error("Error in response:", errorMessage, backendResponse.data);
+      toast.error(errorMessage);
+      setError(errorMessage);
     }
-  };
+  } catch (error) {
+    console.error("Error authenticating with Google:", error);
+    
+    // Detailed error logging
+    if (error.response) {
+      console.error("Error response data:", error.response.data);
+      console.error("Error response status:", error.response.status);
+      console.error("Error response headers:", error.response.headers);
+      
+      const errorDetails = error.response.data.details?.error || 
+                          error.response.data.message || 
+                          `Server error (${error.response.status})`;
+      toast.error(`Google login failed: ${errorDetails}`);
+      setError(errorDetails);
+    } else if (error.request) {
+      console.error("Error request:", error.request);
+      toast.error("No response received from server. Please try again later.");
+      setError("No response received from server");
+    } else {
+      console.error("Error message:", error.message);
+      toast.error(`Error: ${error.message}`);
+      setError(error.message);
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleOTPSuccess = (data) => {
     // Use dispatch instead of manually setting localStorage
@@ -172,7 +203,7 @@ const Login = () => {
     dispatch(fetchUserProfile());
     setShowOTPModal(false);
     toast.success("Email verified successfully!");
-    navigate("/user/homepage");
+    navigate("/user/home");
   };
 
   const handleOTPCancel = () => {
@@ -265,34 +296,15 @@ const Login = () => {
                 </Link>
               </p>
             </div>
-            {/* <GoogleLogin onSuccess={responseMessage} onError={errorMessage} /> */}
-            {/* Google Sign-In Button */}
+
             <div className="text-center mt-4">
               <div id="googleSignInDiv"></div>
             </div>
-            {/* <button type="button" className="google-login">
-                            <img src={googleLogo} alt="Google Logo" className="google-logo" />
-                            <span>Sign in with Google</span>
-                        </button> */}
+           
           </form>
         </div>
       </div>
-      {/* {showOTPModal && (
-                <OTPVerificationModal
-                    userId={userId}
-                    onSuccess={(data) => {
-                        localStorage.setItem('token', data.token);
-                        localStorage.setItem('refresh_token', data.refresh_token);
-                        dispatch(setAuthData(data));
-                        toast.success('Email verified successfully!');
-                        navigate('/user/homepage');
-                    }}
-                    onCancel={() => {
-                        setShowOTPModal(false);
-                        toast.info('Email verification cancelled');
-                    }}
-                />
-            )} */}
+      
       {showOTPModal && (
         <OTPVerificationModal
           userId={userId}

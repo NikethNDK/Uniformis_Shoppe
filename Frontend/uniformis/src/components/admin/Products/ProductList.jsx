@@ -479,7 +479,7 @@ const ProductList = () => {
         <hr />
       </div>
       <div className="mt-4 flex justify-center">
-        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+        {Array.from({ length: totalPages }, (_, i) => i +1).map((page) => (
           <button
             key={page}
             onClick={() => handlePageChange(page)}
