@@ -148,6 +148,7 @@ const CheckoutPage = () => {
       setLoading(true);
       
       // Only proceed with card payment if there's an amount to pay after wallet
+
       if (paymentMethod === 'card' && orderSummary.finalTotal > 0) {
         // Create Razorpay order with coupon and wallet if applied
         const razorpayOrderRes = await axiosInstance.post('/orders/create_razorpay_order/', {
@@ -155,7 +156,7 @@ const CheckoutPage = () => {
           wallet_amount: useWallet ? walletAmountToUse : 0
         });
         
-        // Correctly access the Razorpay order data
+        // access the Razorpay order data
         const orderData = razorpayOrderRes.data.razorpay_order;
         
         const handlePaymentSuccess = async (paymentResponse) => {
@@ -190,19 +191,20 @@ const CheckoutPage = () => {
             const response = await axiosInstance.post('/orders/orders/create_from_cart/', {
               address_id: selectedAddress,
               payment_method: paymentMethod,
-              payment_status: 'failed',  // Explicitly set payment status as failed
+              payment_status: 'failed', 
               coupon_code: appliedCoupon ? appliedCoupon.code : null,
               wallet_amount: useWallet ? walletAmountToUse : 0
             });
             
             console.log('Failed payment order created:', response.data);
             toast.warning("Payment was not completed. Order saved with failed payment status.");
-            navigate("/user/trackorder");
+            
           } catch (error) {
             console.error('Error creating failed payment order:', error);
             toast.error(error.response?.data?.error || "Failed to create order");
           } finally {
             setLoading(false);
+            navigate("/user/trackorder");
           }
         };
  
@@ -220,7 +222,7 @@ const CheckoutPage = () => {
           },
           handler: handlePaymentSuccess,
           modal: {
-            ondismiss: handleModalClose  // Handle modal closure
+            ondismiss: handleModalClose  
           },
           theme: {
             color: "#3399cc"
@@ -281,7 +283,7 @@ const CheckoutPage = () => {
 
 
 const handleAddressAdded = (newAddress) => {
-  // Fetch the updated list of addresses
+ 
   fetchAddresses()
   // Select the newly created address
   setSelectedAddress(newAddress.id)
