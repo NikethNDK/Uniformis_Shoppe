@@ -12,6 +12,7 @@ const ForgotPassword = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
+      console.log('email: ',email)
       const response = await axiosInstance.post("/password_reset/", {
         email: email,
       })

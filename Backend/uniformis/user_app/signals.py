@@ -8,14 +8,14 @@ from .utils import generate_otp, send_otp_email
 
 
 
-from django.dispatch import receiver
-from django.urls import reverse
-from django_rest_passwordreset.signals import reset_password_token_created
-from django.core.mail import send_mail, EmailMessage
+# from django.dispatch import receiver
+# from django.urls import reverse
+# from django_rest_passwordreset.signals import reset_password_token_created
+# from django.core.mail import send_mail, EmailMessage
 
 
 
-from django.dispatch import receiver
+# from django.dispatch import receiver
 from django_rest_passwordreset.signals import reset_password_token_created
 from django.core.mail import send_mail
 from django.conf import settings

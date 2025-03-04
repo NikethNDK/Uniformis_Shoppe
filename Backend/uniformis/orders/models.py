@@ -1,7 +1,7 @@
 from django.db import models,transaction
 from django.utils import timezone
 from user_app.models import User,Address
-from products.models import Product,ProductSizeColor
+# from products.models import Product,ProductSizeColor
 from datetime import timedelta
 from offers.models import Coupon
 from decimal import Decimal
@@ -25,7 +25,7 @@ class Cart (models.Model):
 
 class CartItem(models.Model):
     cart = models.ForeignKey(Cart, related_name='items', on_delete=models.CASCADE)
-    variant = models.ForeignKey(ProductSizeColor, on_delete=models.CASCADE)
+    variant = models.ForeignKey('products.ProductSizeColor', on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -65,6 +65,8 @@ class Order(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES)
+    razorpay_order_id = models.CharField(max_length=100, null=True, blank=True)
+    razorpay_payment_id = models.CharField(max_length=100, null=True, blank=True)
     
     # Price fields
     subtotal = models.DecimalField(max_digits=10, decimal_places=2)  # Original price before discounts
@@ -302,7 +304,7 @@ class OrderItem(models.Model):
 
 
     order = models.ForeignKey(Order, related_name='items', on_delete=models.CASCADE)
-    variant = models.ForeignKey(ProductSizeColor, on_delete=models.SET_NULL, null=True)
+    variant = models.ForeignKey('products.ProductSizeColor', on_delete=models.SET_NULL, null=True)
     product_name = models.CharField(max_length=255)
     size = models.CharField(max_length=50)
     color = models.CharField(max_length=50)
@@ -317,7 +319,7 @@ class OrderItem(models.Model):
     return_reason = models.TextField(blank=True, null=True)
     refund_processed = models.BooleanField(default=False)
     refund_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-
+    is_reviewed = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         if not self.final_price:
@@ -383,7 +385,7 @@ class Wishlist (models.Model):
 
 class WishlistItem(models.Model):
     wishlist = models.ForeignKey(Wishlist, related_name='wishitems', on_delete=models.CASCADE)
-    variant = models.ForeignKey(ProductSizeColor, on_delete=models.CASCADE)
+    variant = models.ForeignKey('products.ProductSizeColor', on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -10,7 +10,7 @@ def generate_otp():
 def send_otp_email(user, otp):
     subject = 'Uniformis Shoppe Verify your email - OTP'
     message = f'Your OTP for email verification for Uniformis Shoppe is: {otp}\nThis OTP will expire in 2 minutes.'
-    from_email = 'nikethdileepkumar@gmail.com'  # Configure this
+    from_email = 'nikethdileepkumar@gmail.com' 
     recipient_list = [user.email]
     
     send_mail(subject, message, from_email, recipient_list)

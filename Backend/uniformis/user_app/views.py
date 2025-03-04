@@ -11,7 +11,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth import authenticate
 from .serializers import UserProfileSerializer
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAdminUser,IsAuthenticated,AllowAny
+from rest_framework.permissions import IsAdminUser,IsAuthenticated,AllowAny,BasePermission
 from django.middleware.csrf import get_token
 from django.http import JsonResponse
 from .utils import generate_otp, send_otp_email
@@ -31,17 +31,15 @@ from django.core.cache import cache
 import logging
 from rest_framework_simplejwt.views import TokenRefreshView as SimpleJWTTokenRefreshView
 from rest_framework_simplejwt.exceptions import TokenError
+import traceback,uuid
 
-
-# Configure logging
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
-
-
 class SignupView(APIView):
     permission_classes = [AllowAny]
+    authentication_classes = []
     def post(self, request):
         print("Request: ",request.data)
         serializer = UserSerializer(data=request.data)
@@ -174,9 +172,8 @@ class TokenRefreshView(SimpleJWTTokenRefreshView):
 
         if not refresh_token:
             return Response({
-                'type': 'TOKEN_ERROR',
                 'message': 'Refresh token not found'
-            }, status=status.HTTP_401_UNAUTHORIZED)
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         
         data = {'refresh': refresh_token}
@@ -200,39 +197,6 @@ class TokenRefreshView(SimpleJWTTokenRefreshView):
                 'message': str(e)
             }, status=status.HTTP_401_UNAUTHORIZED)
 
-
-# class TokenRefreshView(SimpleJWTTokenRefreshView):
-    
-#     def post(self, request, *args, **kwargs):
-#         refresh_token = request.COOKIES.get('refresh_token')
-        
-#         if not refresh_token:
-#             return Response({
-#                 'type': 'TOKEN_ERROR',
-#                 'message': 'Refresh token not found'
-#             }, status=status.HTTP_401_UNAUTHORIZED)
-
-#         try:
-#             request.data['refresh'] = refresh_token
-#             response = super().post(request, *args, **kwargs)
-            
-#             # Set the new access token in cookies
-#             response.set_cookie(
-#                 'access_token',
-#                 response.data['access'],
-#                 httponly=True,
-#                 secure=False,  # Set to True in production
-#                 samesite='Lax'
-#             )
-            
-#             return response
-#         except TokenError as e:
-#             return Response({
-#                 'type': 'TOKEN_ERROR',
-#                 'message': str(e)
-#             }, status=status.HTTP_401_UNAUTHORIZED)
-
-
 class LogoutView(APIView):
     def post(self, request):
         response = Response({
@@ -248,6 +212,7 @@ class LogoutView(APIView):
 
 class VerifyOTPView(APIView):
     permission_classes = [AllowAny]
+    authentication_classes = []
     def post(self, request):
         user_id = request.data.get('user_id')
         otp_code = request.data.get('otp_code')
@@ -328,6 +293,7 @@ class VerifyOTPView(APIView):
 
 class ResendOTPView(APIView):
     permission_classes = [AllowAny]
+    authentication_classes = []
     def post(self, request):
         user_id = request.data.get('user_id')
 
@@ -378,6 +344,7 @@ class ResendOTPView(APIView):
                 'message': 'User not found',
                 'details': {'error': 'Invalid user ID'}
             }, status=status.HTTP_404_NOT_FOUND)
+
 
 class AdminTokenObtainView(TokenObtainPairView):
     def post(self, request):
@@ -507,100 +474,165 @@ def generate_random_password(length=12):
     characters = string.ascii_letters + string.digits + string.punctuation
     return ''.join(random.choice(characters) for _ in range(length))
 
+
 @csrf_exempt
 @api_view(['POST'])
 @permission_classes([AllowAny])
-def google_login( request):
+def google_login(request):
     try:
         # Get the credential token from the request
         credential = request.data.get('credential')
         
         if not credential:
-            return Response(
-                {'error': {'commonError': 'No credential provided'}},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({
+                'type': 'VALIDATION_ERROR',
+                'message': 'No credential provided',
+                'details': {'field': 'credential'}
+            }, status=status.HTTP_400_BAD_REQUEST)
 
-        # Verify the Google token
-        id_info = id_token.verify_oauth2_token(
-            credential,
-            requests.Request(),
-            settings.GOOGLE_CLIENT_ID 
-        )
+        # Add detailed logging
+        print(f"Attempting to verify Google token of length: {len(credential)}")
+        
+        try:
+            # Verify the Google token
+            id_info = id_token.verify_oauth2_token(
+                credential,
+                requests.Request(),
+                settings.GOOGLE_CLIENT_ID 
+            )
+            print(f"Token verified successfully. Email: {id_info.get('email')}")
+            
+        except Exception as token_error:
+            print(f"Token verification error: {str(token_error)}")
+            # Check if GOOGLE_CLIENT_ID is correctly set
+            print(f"Using Google Client ID: {settings.GOOGLE_CLIENT_ID[:10]}...")
+            return Response({
+                'type': 'AUTH_ERROR',
+                'message': f'Google token verification failed: {str(token_error)}',
+                'details': {'error': str(token_error)}
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         # Extract user information from the verified token
         email = id_info.get('email')
         first_name = id_info.get('given_name', '')
         last_name = id_info.get('family_name', '')
 
+        print(f"Extracted user info - Email: {email}, Name: {first_name} {last_name}")
+
         # Check if user exists
         try:
             user = User.objects.get(email=email)
+            print(f"Existing user found with ID: {user.id}")
         except User.DoesNotExist:
             # Create new user if doesn't exist
-            with transaction.atomic():
-                user = User.objects.create(
-                    email=email,
-                    first_name=first_name,
-                    last_name=last_name,
-                    is_active=True,
-                    is_email_verified=True
-                )
-                # Set a random password for the user
-                random_password = generate_random_password()
-                user.set_password(random_password)
-                user.save()
+            print("User does not exist. Creating new user.")
+            base_username = f"{first_name.lower()}{last_name.lower()}"
+            username = f"{base_username}_{uuid.uuid4().hex[:8]}"
+            try:
+                with transaction.atomic():
+                    user = User.objects.create(
+                        email=email,
+                        username=username,
+                        first_name=first_name,
+                        last_name=last_name,
+                        is_active=True,
+                        is_email_verified=True
+                    )
+                    # Set a random password for the user
+                    random_password = generate_random_password()
+                    user.set_password(random_password)
+                    user.save()
+                    print(f"New user created with ID: {user.id}")
+            except Exception as create_error:
+                print(f"Error creating user: {str(create_error)}")
+                return Response({
+                    'type': 'SERVER_ERROR',
+                    'message': f'Error creating user: {str(create_error)}',
+                    'details': {'error': str(create_error)}
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         # Check if user is active
         if not user.is_active:
-            return Response(
-                {'error': {'commonError': 'Your account has been blocked.'}},
-                status=status.HTTP_403_FORBIDDEN
-            )
+            print(f"User {user.id} is not active")
+            return Response({
+                'type': 'FORBIDDEN',
+                'message': 'Your account has been blocked by the admin',
+                'details': {'error': 'Account blocked'}
+            }, status=status.HTTP_403_FORBIDDEN)
 
         # Generate JWT token
-        refresh = RefreshToken.for_user(user)
-        
-
-        response = Response({
-        'type': 'SUCCESS',
-        'message': 'Login Successful',
-        'data': {
-            'user': {
+        print("Generating JWT token")
+        try:
+            refresh = RefreshToken.for_user(user)
+        except Exception as token_gen_error:
+            print(f"Error generating token: {str(token_gen_error)}")
+            return Response({
+                'type': 'SERVER_ERROR',
+                'message': f'Error generating authentication token: {str(token_gen_error)}',
+                'details': {'error': str(token_gen_error)}
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+        try:
+            user_data = {
                 'id': user.id,
                 'first_name': user.first_name,
                 'last_name': user.last_name,
                 'email': user.email,
+              
             }
-        }
-    }, status=status.HTTP_200_OK)
-        response.set_cookie(
-            'access_token',
-            str(refresh.access_token),
-            httponly=True,
-            secure=False,
-            samesite='Lax',
-            path='/'
-        )
-        response.set_cookie(
-            'refresh_token',
-            str(refresh),
-            httponly=True,
-            secure=False,
-            samesite='Lax',
-            path='/'
-        )
-
-        return response
+            
+            response = Response({
+                'type': 'SUCCESS',
+                'message': 'Login Successful',
+                'data': {
+                    'user': user_data
+                }
+            }, status=status.HTTP_200_OK)
+            
+            response.set_cookie(
+                'access_token',
+                str(refresh.access_token),
+                httponly=True,
+                secure=False,
+                samesite='Lax',
+                path='/'
+            )
+            response.set_cookie(
+                'refresh_token',
+                str(refresh),
+                httponly=True,
+                secure=False,
+                samesite='Lax',
+                path='/'
+            )
+            
+            print("Response prepared successfully. User logged in.")
+            return response
+            
+        except Exception as response_error:
+            print(f"Error preparing response: {str(response_error)}")
+            return Response({
+                'type': 'SERVER_ERROR',
+                'message': f'Error preparing response: {str(response_error)}',
+                'details': {'error': str(response_error)}
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
     except ValueError as e:
+        print(f"ValueError: {str(e)}")
         return Response({
             'type': 'AUTH_ERROR',
-            'message': 'Invalid Google token'
+            'message': f'Invalid Google token: {str(e)}',
+            'details': {'error': str(e)}
         }, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
+    
+        error_traceback = traceback.format_exc()
+        print(f"Unexpected error: {str(e)}")
+        print(f"Traceback: {error_traceback}")
         return Response({
             'type': 'SERVER_ERROR',
-            'message': str(e)
+            'message': f'Server error: {str(e)}',
+            'details': {'error': error_traceback}
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -675,3 +707,69 @@ def check_auth_status(request):
     """
     user = request.user  # DRF automatically sets user if token is valid
     return Response({"isAuthenticated": True, "user": {"id": user.id, "username": user.username}})
+
+class OptionalAuthentication(BasePermission):
+    """
+    Custom permission to allow both authenticated and unauthenticated access
+    but provide different responses.
+    """
+    def has_permission(self, request, view):
+        # Always return True to let the view handle authentication logic
+        return True
+
+# for users
+class CheckUserAuthStatusView(APIView):
+    permission_classes = [OptionalAuthentication]
+
+    def get(self, request):
+        # Check if user is authenticated
+        if not request.user.is_authenticated:
+            # Return a 200 response for unauthenticated users
+            return Response({
+                "authenticated": False,
+                "message": "User not authenticated"
+            }, status=status.HTTP_200_OK)
+
+        user = request.user
+        
+        # Now we know user is authenticated, so it's safe to check is_superadmin
+        if user.is_superadmin:
+            return Response(
+                {"message": "Invalid user type"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        return Response({
+            "user": UserSerializer(user).data,
+            "authenticated": True 
+        })
+# for admins
+class CheckAdminAuthStatusView(APIView):
+    permission_classes = [OptionalAuthentication]
+
+    def get(self, request):
+        # Check if user is authenticated
+        if not request.user.is_authenticated:
+            # Return a 200 response for unauthenticated users
+            return Response({
+                "authenticated": False,
+                "message": "Admin not authenticated"
+            }, status=status.HTTP_200_OK)
+
+        user = request.user
+        
+        # Now we know user is authenticated, so it's safe to check is_superadmin
+        if not user.is_superadmin:
+            return Response({
+                "message": "Insufficient Permission"
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        return Response({
+            "user": {
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'is_superadmin': user.is_superadmin,
+            },
+            "authenticated": True
+        })

@@ -8,11 +8,27 @@ from django.http import JsonResponse
 from datetime import datetime,timedelta
 
 User = get_user_model()
-
+ 
 class AccessTokenMiddleware(MiddlewareMixin):
     def process_request(self, request):
-        # Skip middleware for refresh token endpoint
-        if request.path == '/api/token/refresh/':
+        print(f"Processing request for path: {request.path}")
+        public_paths = [
+            '/api/token/refresh',
+            '/api/login',
+            '/api/signup/',
+            '/api/check-user-auth-status',
+            '/api/check-admin-auth-status',
+            '/api/check-auth-status'
+            '/api/password_reset',
+            '/api/google_login/',
+        ]
+        if request.path in public_paths:
+            print(f"Path {request.path} is in public_paths. Skipping middleware.")
+            return None
+        else:
+            print(f"Path {request.path} is NOT in public_paths. Continuing middleware.")
+        # Skip middleware for public endpoints (more flexible check)
+        if any(request.path.startswith(path) for path in public_paths):
             return None
             
         access_token = request.COOKIES.get('access_token')

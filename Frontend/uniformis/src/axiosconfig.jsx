@@ -71,16 +71,19 @@ axiosInstance.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const response = await axiosInstance.post('/token/refresh/');
+        await refreshToken();
         isRefreshing = false;
         processQueue(null);
         return axiosInstance(originalRequest);
       } catch (refreshError) {
         isRefreshing = false;
         processQueue(refreshError, null);
-        // Clear any auth state here
-        window.location.href = '/login';
-        return Promise.reject(refreshError);
+        if (!originalRequest.url.includes('check-user-auth-status') && 
+        !originalRequest.url.includes('check-admin-auth-status')) {
+      // Clear auth state from Redux store here
+      window.location.href = '/login';
+    }
+    return Promise.reject(refreshError);
       }
     }
 

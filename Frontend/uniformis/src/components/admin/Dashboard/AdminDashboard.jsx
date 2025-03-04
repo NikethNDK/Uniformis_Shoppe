@@ -1,4 +1,3 @@
-"use client"
 
 import { useEffect, useState } from "react"
 import { FaSearch, FaUserAlt, FaBox, FaShoppingCart, FaSignOutAlt } from "react-icons/fa"
@@ -32,6 +31,7 @@ const Dashboard = () => {
   const [trendData, setTrendData] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [orders, setOrders] = useState([])
+  const [yearlySales, setYearlySales] = useState(0)
 
   const [dashboardStats, setDashboardStats] = useState({
     totalUsers: 0,
@@ -51,11 +51,36 @@ const Dashboard = () => {
     }
   }
 
+  const navigateToUsers = () => {
+    navigate("/admin/customerManagement")
+  }
+
+  const navigateToOrders = () => {
+    navigate("/admin/ordermanagement")
+  }
+
+  const navigateToSalesReport = () => {
+    navigate("/admin/salesreport")
+  }
+
   useEffect(() => {
     fetchDashboardData()
     fetchSalesData()
     fetchRecentOrders()
+    fetchYearlySales()
   }, []) 
+
+  const fetchYearlySales = async () => {
+    try {
+      // Using the SalesReportViewSet API to get yearly sales data
+      const response = await adminAxiosInstance.get("/orders/sales-report/generate/?type=yearly")
+      setYearlySales(response.data.net_sales || 0)
+    } catch (error) {
+      console.error("Yearly sales fetch error:", error)
+      toast.error("Failed to fetch yearly sales data")
+      setYearlySales(0)
+    }
+  }
 
   const fetchDashboardData = async () => {
     try {
@@ -217,8 +242,6 @@ const Dashboard = () => {
     navigate("/admin/login")
   }
 
-  
-
   const filteredOrders = orders.filter(
     (order) =>
       order.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -256,7 +279,10 @@ const Dashboard = () => {
       <div className="container mx-auto px-4">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <div className="bg-white rounded-lg shadow p-6">
+          <div 
+            className="bg-white rounded-lg shadow p-6 cursor-pointer hover:bg-blue-50 transition-colors"
+            onClick={navigateToUsers}
+          >
             <div className="flex items-center gap-4">
               <div className="p-3 bg-blue-100 rounded-full">
                 <FaUserAlt className="text-blue-600 text-xl" />
@@ -267,7 +293,10 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
+          <div 
+            className="bg-white rounded-lg shadow p-6 cursor-pointer hover:bg-green-50 transition-colors"
+            onClick={navigateToOrders}
+          >
             <div className="flex items-center gap-4">
               <div className="p-3 bg-green-100 rounded-full">
                 <FaBox className="text-green-600 text-xl" />
@@ -278,14 +307,17 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
+          <div 
+            className="bg-white rounded-lg shadow p-6 cursor-pointer hover:bg-purple-50 transition-colors"
+            onClick={navigateToSalesReport}
+          >
             <div className="flex items-center gap-4">
               <div className="p-3 bg-purple-100 rounded-full">
                 <FaShoppingCart className="text-purple-600 text-xl" />
               </div>
               <div>
-                <h3 className="text-gray-500 text-sm">Total Sales</h3>
-                <p className="text-2xl font-bold">₹{dashboardStats.totalSales.toLocaleString()}</p>
+                <h3 className="text-gray-500 text-sm">Net Annual Sales</h3>
+                <p className="text-2xl font-bold">₹{yearlySales.toLocaleString()}</p>
               </div>
             </div>
           </div>
@@ -429,4 +461,3 @@ const Dashboard = () => {
 }
 
 export default Dashboard
-

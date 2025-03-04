@@ -1,16 +1,53 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
-import { Search } from 'lucide-react';
+import { Search } from "lucide-react";
 import { toast } from "react-toastify";
 import Invoice from "../../admin/OrderManagement/Invoice";
 import { Input } from "../../components/ui/input";
 import { Button } from "../../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle  } from "../../components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../../components/ui/dialog";
-import { orderApi } from "../../../axiosconfig";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../../components/ui/accordion"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../../components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "../../components/ui/dialog";
+import { orderApi, productApi } from "../../../axiosconfig";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../../components/ui/table";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "../../components/ui/accordion";
 import { extractErrorMessages } from "../ErrorHandler/ErrorHandler";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../components/ui/alert-dialog";
+import ReviewForm from "./ReviewForm";
+import ReviewDisplay from "./ReviewDisplay";
+import { apiHelpers } from "../../../axiosconfig";
 
 export default function TrackOrder() {
   const [orders, setOrders] = useState([]);
@@ -25,13 +62,15 @@ export default function TrackOrder() {
   const [selectedItem, setSelectedItem] = useState(null);
   const [itemCancelReason, setItemCancelReason] = useState("");
   const [itemCancelDialogOpen, setItemCancelDialogOpen] = useState(false);
-  
+  const [isRetryDialogOpen, setIsRetryDialogOpen] = useState(false);
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [viewReviewDialogOpen, setViewReviewDialogOpen] = useState(false);
 
-  
   const fetchOrders = async () => {
     try {
       const response = await orderApi.get("/");
-      console.log("Order page api call response: ",response.data)
+      console.log("Order page api call response: ", response.data);
       setOrders(response.data);
     } catch (error) {
       toast.error("Failed to fetch orders");
@@ -44,30 +83,60 @@ export default function TrackOrder() {
     fetchOrders();
   }, []);
 
+  const handleReviewSubmit = async (orderId, itemId, rating, comment) => {
+    console.log('Submitting review:', { orderId, itemId, rating, comment });
+    try {
+      await productApi.post(`/orders/${orderId}/items/${itemId}/review/`, {
+        rating,
+        comment,
+      });
+      toast.success("Review submitted successfully");
+
+      // Update the local state to reflect the review submission
+      setOrders((prevOrders) =>
+        prevOrders.map((order) =>
+          order.id === orderId
+            ? {
+                ...order,
+                items: order.items.map((item) =>
+                  item.id === itemId ? { ...item, is_reviewed: true } : item
+                ),
+              }
+            : order
+        )
+      );
+    } catch (error) {
+      toast.error("Failed to submit review. Please try again.");
+    } finally {
+      setReviewDialogOpen(false);
+      setSelectedItem(null);
+    }
+  };
+
   const handleCancel = async () => {
     try {
       const response = await orderApi.post(`${selectedOrderId}/cancel/`);
-      
+
       if (response.data) {
         toast.success("Order cancelled successfully");
-        setOrders(prevOrders => 
-          prevOrders.map(order => 
-            order.id === selectedOrderId 
-              ? { ...order, status: 'cancelled' }
+        setOrders((prevOrders) =>
+          prevOrders.map((order) =>
+            order.id === selectedOrderId
+              ? { ...order, status: "cancelled" }
               : order
           )
         );
       }
     } catch (error) {
-      if (error.response && error.response.data){
+      if (error.response && error.response.data) {
         console.error("Cancel order error:", error.response.data.error);
-        const errorMessage = extractErrorMessages(error.response.data.error).join(", ")
+        const errorMessage = extractErrorMessages(
+          error.response.data.error
+        ).join(", ");
         toast.error(errorMessage);
-      }
-      else{
+      } else {
         console.error("Cancel order error:", error);
       }
-      
     } finally {
       setCancelDialogOpen(false);
     }
@@ -80,25 +149,102 @@ export default function TrackOrder() {
         return;
       }
 
-      const response = await orderApi.post(`${selectedOrderId}/return_order/`, { return_reason: returnReason });
-      
+      const response = await orderApi.post(`${selectedOrderId}/return_order/`, {
+        return_reason: returnReason,
+      });
+
       if (response.data) {
         toast.success("Return request submitted successfully");
-        setOrders(prevOrders => 
-          prevOrders.map(order => 
-            order.id === selectedOrderId 
-              ? { ...order, status: 'returned', is_returned: true }
+        setOrders((prevOrders) =>
+          prevOrders.map((order) =>
+            order.id === selectedOrderId
+              ? { ...order, status: "returned", is_returned: true }
               : order
           )
         );
       }
     } catch (error) {
-      const errorMessage = error.response?.data?.error || "Failed to submit return request";
+      const errorMessage =
+        error.response?.data?.error || "Failed to submit return request";
       toast.error(errorMessage);
       console.error("Return order error:", error);
     } finally {
       setReturnDialogOpen(false);
       setReturnReason("");
+    }
+  };
+
+  const handleRetryPayment = async () => {
+    try {
+      setPaymentProcessing(true);
+      const response = await orderApi.post(
+        `/${selectedOrderId}/retry-payment/`
+      );
+
+      const orderData = response.data.razorpay_order;
+
+      const options = {
+        key: "rzp_test_MIlvGi78yuccr2",
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: "Uniformis Shoppe",
+        description: "Payment retry for your order",
+        order_id: orderData.id,
+        prefill: {
+          name: "Customer Name",
+          email: "customer@example.com",
+          contact: "9633134666",
+        },
+        handler: function (response) {
+          handlePaymentSuccess(response);
+        },
+        modal: {
+          ondismiss: function () {
+            console.log("Payment modal closed");
+            setPaymentProcessing(false);
+          },
+        },
+        theme: {
+          color: "#3399cc",
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+
+      rzp.on("payment.failed", function (response) {
+        console.error("Payment failed:", response.error);
+        toast.error(response.error.description || "Payment failed");
+        setPaymentProcessing(false);
+      });
+
+      rzp.open();
+    } catch (error) {
+      toast.error(
+        error.response?.data?.error || "Failed to initiate payment retry"
+      );
+      console.error("Payment retry error:", error);
+      setPaymentProcessing(false);
+    }
+  };
+
+  const handlePaymentSuccess = async (paymentResponse) => {
+    try {
+      const response = await orderApi.post(
+        `/${selectedOrderId}/confirm-retry-payment/`,
+        {
+          payment_id: paymentResponse.razorpay_payment_id,
+          razorpay_order_id: paymentResponse.razorpay_order_id,
+          signature: paymentResponse.razorpay_signature,
+        }
+      );
+
+      toast.success("Payment successful!");
+      fetchOrders(); // Refresh orders
+    } catch (error) {
+      toast.error(error.response?.data?.error || "Failed to confirm payment");
+      console.error("Payment confirmation error:", error);
+    } finally {
+      setPaymentProcessing(false);
     }
   };
 
@@ -118,11 +264,26 @@ export default function TrackOrder() {
     }
   };
 
+  const getPaymentStatusColor = (status) => {
+    switch (status.toLowerCase()) {
+      case "completed":
+        return "text-green-600";
+      case "failed":
+        return "text-red-600";
+      case "pending":
+        return "text-yellow-600";
+      default:
+        return "text-gray-600";
+    }
+  };
+
   const filteredOrders = orders.filter((order) => {
     const searchLower = searchQuery.toLowerCase();
     return (
       order.order_number.toLowerCase().includes(searchLower) ||
-      order.items.some((item) => item.product_name.toLowerCase().includes(searchLower))
+      order.items.some((item) =>
+        item.product_name.toLowerCase().includes(searchLower)
+      )
     );
   });
 
@@ -144,20 +305,19 @@ export default function TrackOrder() {
         `${selectedOrder.id}/cancel-item/${selectedItem.id}/`,
         { reason: itemCancelReason }
       );
-      
+
       if (response.data) {
         toast.success("Item cancelled successfully");
         // Update orders state
-        setOrders(prevOrders => 
-          prevOrders.map(order => 
-            order.id === selectedOrder.id 
-              ? response.data 
-              : order
+        setOrders((prevOrders) =>
+          prevOrders.map((order) =>
+            order.id === selectedOrder.id ? response.data : order
           )
         );
       }
     } catch (error) {
-      const errorMessage = error.response?.data?.error || "Failed to cancel item";
+      const errorMessage =
+        error.response?.data?.error || "Failed to cancel item";
       toast.error(errorMessage);
     } finally {
       setItemCancelDialogOpen(false);
@@ -171,7 +331,7 @@ export default function TrackOrder() {
     setSelectedOrder(null);
     // Add a small delay to ensure clean up
     setTimeout(() => {
-      document.body.style.overflow = 'auto';
+      document.body.style.overflow = "auto";
     }, 100);
   };
 
@@ -197,10 +357,10 @@ export default function TrackOrder() {
         ) : (
           filteredOrders.map((order) => (
             <Card key={order.id}>
-         
-
-<CardHeader>
-                <CardTitle className="text-lg font-semibold">Order #{order.order_number}</CardTitle>
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold">
+                  Order #{order.order_number}
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <Accordion type="single" collapsible className="mb-4">
@@ -212,7 +372,8 @@ export default function TrackOrder() {
                           <p>{order.delivery_address.name}</p>
                           <p>{order.delivery_address.house_no}</p>
                           <p>
-                            {order.delivery_address.city}, {order.delivery_address.state}
+                            {order.delivery_address.city},{" "}
+                            {order.delivery_address.state}
                           </p>
                           <p>PIN: {order.delivery_address.pin_code}</p>
                           <p>Phone: {order.delivery_address.mobile_number}</p>
@@ -222,7 +383,10 @@ export default function TrackOrder() {
                   </AccordionItem>
                 </Accordion>
                 {order.items.map((item) => (
-                  <div key={item.id} className="flex items-center gap-4 p-4 border-b last:border-b-0">
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-4 p-4 border-b last:border-b-0"
+                  >
                     <img
                       src={item.image || "/placeholder.svg"}
                       alt={item.product_name}
@@ -236,73 +400,142 @@ export default function TrackOrder() {
                       <p className="font-medium">₹{item.final_price}</p>
                     </div>
                     <div className="text-right">
-                      <p className={`font-medium ${getStatusColor(item.status)}`}>{item.status}</p>
-                      {item.status === "active" && order.status !== "delivered" && (
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          className="mt-2"
-                          onClick={() => {
-                            setSelectedOrder(order)
-                            setSelectedItem(item)
-                            setItemCancelDialogOpen(true)
-                          }}
-                        >
-                          Cancel Item
-                        </Button>
+                      <p
+                        className={`font-medium ${getStatusColor(item.status)}`}
+                      >
+                        {item.status}
+                      </p>
+                      {item.status === "active" &&
+                        order.status !== "delivered" && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            className="mt-2"
+                            onClick={() => {
+                              setSelectedOrder(order);
+                              setSelectedItem(item);
+                              setItemCancelDialogOpen(true);
+                            }}
+                          >
+                            Cancel Item
+                          </Button>
+                        )}
+                      {order.status === "delivered" && (
+                        <>
+                          {!item.is_reviewed ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="mt-2"
+                              onClick={() => {
+                                setSelectedOrder(order);
+                                setSelectedItem(item);
+                                setReviewDialogOpen(true);
+                              }}
+                            >
+                              Write Review
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="mt-2"
+                              onClick={() => {
+                                setSelectedOrder(order);
+                                setSelectedItem(item);
+                                setViewReviewDialogOpen(true);
+                              }}
+                            >
+                              View Review
+                            </Button>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
                 ))}
                 <div className="mt-4 flex justify-between items-center">
                   <div>
-                    <p className={`font-medium ${getStatusColor(order.status)}`}>Order Status: {order.status}</p>
-                    <p className="text-sm text-gray-500">
-                      Order Date: {format(new Date(order.created_at), "dd.MM.yyyy")}
+                    <p
+                      className={`font-medium ${getStatusColor(order.status)}`}
+                    >
+                      Order Status: {order.status}
                     </p>
-                    <p className="text-sm text-gray-500">Est. Delivery: {getEstimatedDelivery(order.created_at)}</p>
+                    <p className="text-sm text-gray-500">
+                      Order Date:{" "}
+                      {format(new Date(order.created_at), "dd.MM.yyyy")}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Est. Delivery: {getEstimatedDelivery(order.created_at)}
+                    </p>
                   </div>
                   <div>
                     <p className="font-medium">Total: ₹{order.final_total}</p>
-                    <p className="text-sm text-gray-500">Payment: {order.payment_method}</p>
-                    <p className="text-sm text-gray-500">Payment Status: {order.payment_status}</p>
-                    {order.status !== "delivered" && order.status !== "cancelled" && order.status !== "returned" && (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        className="mt-2"
-                        onClick={() => {
-                          setSelectedOrderId(order.id)
-                          setCancelDialogOpen(true)
-                        }}
-                      >
-                        Cancel Order
-                      </Button>
-                    )}
-                    {order.status === "delivered" && !order.is_returned && (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="mt-2"
-                        onClick={() => {
-                          setSelectedOrderId(order.id)
-                          setReturnDialogOpen(true)
-                        }}
-                      >
-                        Return Order
-                      </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-2 ml-2"
-                      onClick={() => {
-                        setSelectedOrder(order)
-                        setInvoiceDialogOpen(true)
-                      }}
+                    <p className="text-sm text-gray-500">
+                      Payment: {order.payment_method}
+                    </p>
+                    <p
+                      className={`text-sm font-medium ${getPaymentStatusColor(
+                        order.payment_status
+                      )}`}
                     >
-                      View Invoice
-                    </Button>
+                      Payment Status: {order.payment_status}
+                    </p>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {order.status !== "delivered" &&
+                        order.status !== "cancelled" &&
+                        order.status !== "returned" && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedOrderId(order.id);
+                              setCancelDialogOpen(true);
+                            }}
+                          >
+                            Cancel Order
+                          </Button>
+                        )}
+                      {(order.payment_status === "failed" ||
+                        order.payment_status === "pending") &&
+                        order.payment_method === "card" && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedOrderId(order.id);
+                              setIsRetryDialogOpen(true);
+                            }}
+                            disabled={paymentProcessing}
+                          >
+                            {paymentProcessing
+                              ? "Processing..."
+                              : "Retry Payment"}
+                          </Button>
+                        )}
+                      {order.status === "delivered" && !order.is_returned && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedOrderId(order.id);
+                            setReturnDialogOpen(true);
+                          }}
+                        >
+                          Return Order
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedOrder(order);
+                          setInvoiceDialogOpen(true);
+                        }}
+                      >
+                        View Invoice
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -320,12 +553,18 @@ export default function TrackOrder() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleCancel}>Confirm</Button>
+            <Button
+              variant="outline"
+              onClick={() => setCancelDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleCancel}>
+              Confirm
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
 
       <Dialog open={returnDialogOpen} onOpenChange={setReturnDialogOpen}>
         <DialogContent>
@@ -341,7 +580,12 @@ export default function TrackOrder() {
             placeholder="Enter return reason"
           />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setReturnDialogOpen(false)}>Cancel</Button>
+            <Button
+              variant="outline"
+              onClick={() => setReturnDialogOpen(false)}
+            >
+              Cancel
+            </Button>
             <Button onClick={handleReturn}>Submit Return Request</Button>
           </DialogFooter>
         </DialogContent>
@@ -349,15 +593,14 @@ export default function TrackOrder() {
 
       {invoiceDialogOpen && selectedOrder && (
         <Dialog open={invoiceDialogOpen} onOpenChange={handleCloseInvoice}>
-          <Invoice 
-            order={selectedOrder} 
-            onClose={handleCloseInvoice}
-          />
+          <Invoice order={selectedOrder} onClose={handleCloseInvoice} />
         </Dialog>
       )}
 
-
-      <Dialog open={itemCancelDialogOpen} onOpenChange={setItemCancelDialogOpen}>
+      <Dialog
+        open={itemCancelDialogOpen}
+        onOpenChange={setItemCancelDialogOpen}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Cancel Item</DialogTitle>
@@ -371,7 +614,10 @@ export default function TrackOrder() {
             placeholder="Enter cancellation reason"
           />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setItemCancelDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setItemCancelDialogOpen(false)}
+            >
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleItemCancel}>
@@ -380,7 +626,52 @@ export default function TrackOrder() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
+      {/* Retry Payment Dialog */}
+      <AlertDialog open={isRetryDialogOpen} onOpenChange={setIsRetryDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Retry Payment</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are about to retry payment for this order. You will be
+              redirected to the payment gateway.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRetryPayment}
+              disabled={paymentProcessing}
+            >
+              {paymentProcessing ? "Processing..." : "Continue to Payment"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {reviewDialogOpen && selectedOrder && selectedItem && (
+        <ReviewForm
+          orderId={selectedOrder.id}
+          itemId={selectedItem.id}
+          onReviewSubmitted={handleReviewSubmit}
+          onClose={() => {
+            setReviewDialogOpen(false);
+            setSelectedItem(null);
+          }}
+        />
+      )}
+
+{viewReviewDialogOpen && selectedOrder && selectedItem && (
+  <ReviewDisplay
+    orderId={selectedOrder.id}
+    itemId={selectedItem.id}
+    onReviewSubmitted={handleReviewSubmit}
+    onClose={() => {
+      setViewReviewDialogOpen(false);
+      setSelectedItem(null);
+    }}
+  />
+)}
     </div>
   );
 }

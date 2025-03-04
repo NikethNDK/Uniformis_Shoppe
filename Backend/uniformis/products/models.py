@@ -2,6 +2,7 @@ from django.db import models
 from django.utils import timezone
 from user_app.models import User
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.apps import apps 
 
 class Category(models.Model):
     name = models.CharField(max_length=255, unique=True)
@@ -97,8 +98,12 @@ class ProductSizeColor(models.Model):
     
 class Review(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    product = models.ForeignKey(Product, related_name='reviews', on_delete=models.CASCADE)
+    product = models.ForeignKey('products.Product', related_name='reviews', on_delete=models.CASCADE)
     rating = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
     comment = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    order_item = models.ForeignKey('orders.OrderItem', on_delete=models.CASCADE)
+    
+    def __str__(self):
+        return f"Review by {self.user.username} for {self.product.name}"

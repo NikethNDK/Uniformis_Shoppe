@@ -61,7 +61,8 @@
 
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import AdminProductViewSet,UserProductViewSet, CategoryViewSet, ReviewViewSet, AddProductView, SizeViewSet, product_detail, product_list,ColorViewSet,UpdateProductView
+# from .views import AdminProductViewSet,UserProductViewSet, CategoryViewSet, ReviewViewSet, AddProductView, SizeViewSet, product_detail, product_list,ColorViewSet,UpdateProductView,CreateReviewView,ProductReviewsView
+from .views import *
 
 router = DefaultRouter()
 # router.register(r'items', ProductViewSet, basename='product')
@@ -88,6 +89,11 @@ user_router.register('reviews', ReviewViewSet)
 urlpatterns = [
     path('admin/addproduct/', AddProductView.as_view(), name='add-product'),
      path('admin/updateproduct/<int:pk>/', UpdateProductView.as_view(), name='update-product'),
+    path('admin/reviews/', AdminReviewListView.as_view(), name='admin-review-list'),
+    path('admin/reviews/<int:review_id>/', AdminReviewDeleteView.as_view(), name='admin-review-delete'),
+
+    
+    
     path('', product_list, name='product-list'),
     path('<int:pk>/', product_detail, name='product-detail'),
     # path('', include(router.urls)),
@@ -97,4 +103,12 @@ urlpatterns = [
     
     # User routes
     path('', include(user_router.urls)),
+
+
+    path('products/<int:product_id>/reviews/', ProductReviewsView.as_view(), name='product-reviews'),
+    path('orders/<int:order_id>/items/<int:item_id>/review/', CreateReviewView.as_view(), name='create-review'),
+    path('orders/<int:order_id>/items/<int:item_id>/reviews/', ProductReviewsView.as_view(), name='order-item-reviews'),
+
+    path('<int:product_id>/reviews/', ProductReviewListView.as_view(), name='product-reviews'),
+    path('<int:product_id>/review-stats/', ProductReviewStatsView.as_view(), name='product-review-stats'),
 ]

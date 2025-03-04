@@ -27,5 +27,7 @@ urlpatterns = [
     path('logout/',LogoutView.as_view(),name='logout'),
     path('password_reset/', include('django_rest_passwordreset.urls', namespace='password_reset')),
     path('check-auth-status/',check_auth_status),
+    path('check-user-auth-status/', CheckUserAuthStatusView.as_view(), name='check_user_auth_status'),
+    path('check-admin-auth-status/', CheckAdminAuthStatusView.as_view(), name='check_admin_auth_status'),
     
 ]
