@@ -80,6 +80,7 @@ class Order(models.Model):
     coupon = models.ForeignKey(Coupon, on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    delivered_at=models.DateTimeField(null=True, blank=True)
 
     is_returned = models.BooleanField(default=False)
     return_reason = models.TextField(blank=True, null=True)
@@ -320,6 +321,7 @@ class OrderItem(models.Model):
     refund_processed = models.BooleanField(default=False)
     refund_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     is_reviewed = models.BooleanField(default=False)
+    is_returned=models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         if not self.final_price:

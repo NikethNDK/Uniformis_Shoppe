@@ -213,6 +213,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         try:
             user = self.request.user
             cart = get_object_or_404(Cart, user=user)
+            
 
             if not cart.items.exists():
                 return Response(
@@ -268,7 +269,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                         client.utility.verify_payment_signature(payment_data)
                         payment_status = 'completed'
                     except razorpay.errors.SignatureVerificationError:
-                            payment_status = 'failed'
+                           payment_status = 'failed'
                 else:
                     # No payment data provided
                     payment_status = 'pending'

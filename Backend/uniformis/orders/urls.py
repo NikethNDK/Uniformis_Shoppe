@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import CartViewSet, OrderViewSet,AddressViewSet,AdminOrderViewSet,SalesReportViewSet,WishlistViewSet,WalletViewSet
+from .views import CartViewSet, OrderViewSet,AddressViewSet,AdminOrderViewSet,SalesReportViewSet,WishlistViewSet,WalletViewSet,OrderItemReturnView
 
 router = DefaultRouter()
 router.register(r'cart', CartViewSet, basename='cart')
@@ -17,4 +17,6 @@ urlpatterns = [
          OrderViewSet.as_view({'post': 'create_razorpay_order'}), 
          name='create-razorpay-order'),
     path('razorpay/webhook/', OrderViewSet.as_view({'post': 'razorpay_webhook'}), name='razorpay-webhook'),
+     path(
+        'orders/<int:order_id>/return-item/<int:item_id>/', OrderItemReturnView.as_view(), name='order-item-return'),
 ]

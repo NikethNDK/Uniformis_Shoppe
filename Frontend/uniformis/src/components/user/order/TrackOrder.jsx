@@ -66,6 +66,8 @@ export default function TrackOrder() {
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [viewReviewDialogOpen, setViewReviewDialogOpen] = useState(false);
+  const [itemReturnDialogOpen, setItemReturnDialogOpen] = useState(false);
+  const [itemReturnReason, setItemReturnReason] = useState("");
 
   const fetchOrders = async () => {
     try {
@@ -171,6 +173,51 @@ export default function TrackOrder() {
     } finally {
       setReturnDialogOpen(false);
       setReturnReason("");
+    }
+  };
+
+  const handleItemReturn = async () => {
+    try {
+      if (!itemReturnReason) {
+        toast.error("Return reason is required");
+        return;
+      }
+
+      const response = await orderApi.post(
+        `${selectedOrder.id}/return-item/${selectedItem.id}/`,
+        { 
+          return_reason: itemReturnReason,
+          item_id: selectedItem.id 
+        }
+      );
+
+      if (response.data) {
+        toast.success("Item return request submitted successfully");
+        // Update orders state
+        setOrders((prevOrders) =>
+          prevOrders.map((order) =>
+            order.id === selectedOrder.id 
+              ? {
+                  ...order,
+                  items: order.items.map((item) =>
+                    item.id === selectedItem.id 
+                      ? { ...item, status: 'returned', is_returned: true } 
+                      : item
+                  )
+                }
+              : order
+          )
+        );
+      }
+    } catch (error) {
+      const errorMessage =
+        error.response?.data?.error || "Failed to submit item return request";
+      toast.error(errorMessage);
+      console.error("Item return error:", error);
+    } finally {
+      setItemReturnDialogOpen(false);
+      setItemReturnReason("");
+      setSelectedItem(null);
     }
   };
 
@@ -405,6 +452,19 @@ export default function TrackOrder() {
                       >
                         {item.status}
                       </p>
+                      {order.status === 'delivered' && !item.is_returned && item.status !== 'returned' && item.status !== 'refunded' &&  (
+  <Button className="ml-2 bg-yellow-500 hover:bg-yellow-700"
+    variant="secondary"
+    size="sm"
+    onClick={() => {
+      setSelectedOrder(order);
+      setSelectedItem(item);
+      setItemReturnDialogOpen(true);
+    }}
+  >
+    Return Item
+  </Button>
+)}
                       {item.status === "active" &&
                         order.status !== "delivered" && (
                           <Button
@@ -420,13 +480,14 @@ export default function TrackOrder() {
                             Cancel Item
                           </Button>
                         )}
+                 
                       {order.status === "delivered" && (
                         <>
                           {!item.is_reviewed ? (
                             <Button
                               variant="outline"
                               size="sm"
-                              className="mt-2"
+                              className="mt-2 ml-2"
                               onClick={() => {
                                 setSelectedOrder(order);
                                 setSelectedItem(item);
@@ -449,6 +510,8 @@ export default function TrackOrder() {
                               View Review
                             </Button>
                           )}
+
+                          
                         </>
                       )}
                     </div>
@@ -515,6 +578,7 @@ export default function TrackOrder() {
                         )}
                       {order.status === "delivered" && !order.is_returned && (
                         <Button
+                        className=" bg-yellow-500 hover:bg-yellow-700"
                           variant="secondary"
                           size="sm"
                           onClick={() => {
@@ -672,6 +736,36 @@ export default function TrackOrder() {
     }}
   />
 )}
+
+<Dialog 
+        open={itemReturnDialogOpen} 
+        onOpenChange={setItemReturnDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Return Item</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for returning this item:
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={itemReturnReason}
+            onChange={(e) => setItemReturnReason(e.target.value)}
+            placeholder="Enter return reason"
+          />
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setItemReturnDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleItemReturn}>
+              Submit Return Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

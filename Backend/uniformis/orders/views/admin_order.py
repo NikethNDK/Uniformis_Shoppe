@@ -1,6 +1,5 @@
 from .imports import *
 
-
 class AdminOrderViewSet(viewsets.ModelViewSet):
     serializer_class = OrderSerializer
     permission_classes = [IsAdminUser]
@@ -20,6 +19,13 @@ class AdminOrderViewSet(viewsets.ModelViewSet):
             order = self.get_object()
             new_status = request.data.get('status')
             print("the request in the update status",new_status)
+            
+            if order.status == 'returned':
+                return Response(
+                    {'error': 'Status cannot be updated as the order is already returned.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
             if new_status not in dict(Order.STATUS_CHOICES):
                 return Response(
                     {'error': 'Invalid status'},
@@ -27,7 +33,13 @@ class AdminOrderViewSet(viewsets.ModelViewSet):
                 )
             
             order.status = new_status
+            order.delivered_at=now()
             order.save()
+
+            if new_status=='delivered' and order.payment_status!='completed':
+                order.payment_status='completed'
+                order.save()
+
             return Response(self.get_serializer(order).data)
         except Exception as e:
             return Response(
@@ -73,6 +85,7 @@ class AdminOrderViewSet(viewsets.ModelViewSet):
 
         try:
             item = order.items.get(id=item_id)
+            print(item.status)
         except OrderItem.DoesNotExist:
             return Response(
                 {'error': 'Item not found'},
@@ -85,9 +98,9 @@ class AdminOrderViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        if item.status != 'cancelled':
+        if item.status != 'cancelled' and item.status!='returned':
             return Response(
-                {'error': 'Only cancelled items can be refunded'},
+                {'error': 'Only cancelled and returned items can be refunded'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 

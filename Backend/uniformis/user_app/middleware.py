@@ -13,15 +13,18 @@ class AccessTokenMiddleware(MiddlewareMixin):
     def process_request(self, request):
         print(f"Processing request for path: {request.path}")
         public_paths = [
-            '/api/token/refresh',
-            '/api/login',
+            '/api/token/refresh/',
+            '/api/login/',
             '/api/signup/',
-            '/api/check-user-auth-status',
-            '/api/check-admin-auth-status',
-            '/api/check-auth-status'
-            '/api/password_reset',
+            '/api/check-user-auth-status/',
+            '/api/check-admin-auth-status/',
+            '/api/check-auth-status/',
+            '/api/password_reset/',
             '/api/google_login/',
         ]
+
+        path = request.path
+
         if request.path in public_paths:
             print(f"Path {request.path} is in public_paths. Skipping middleware.")
             return None
@@ -44,51 +47,64 @@ class AccessTokenMiddleware(MiddlewareMixin):
         except (InvalidToken, TokenError, User.DoesNotExist):
             request.user = None
 
-# class AccessTokenMiddleware(MiddlewareMixin):
-#     def process_request(self, request):
-#         access_token = request.COOKIES.get('access_token')
-#         refresh_token = request.COOKIES.get('refresh_token')
+class AccessTokenMiddleware(MiddlewareMixin):
+    def process_request(self, request):
+        public_paths = [
+            '/api/token/refresh/',
+            '/api/login/',
+            '/api/signup/',
+            '/api/check-user-auth-status/',
+            '/api/check-admin-auth-status/',
+            '/api/check-auth-status/',
+            '/api/password_reset/',
+            '/api/google_login/',
+        ]
         
-#         if not access_token:
-#             request.user = None
-#             return
+        access_token = request.COOKIES.get('access_token')
+        refresh_token = request.COOKIES.get('refresh_token')
         
-#         try:
-#             # Validate the access token
-#             decoded_token = AccessToken(access_token)
-#             user_id = decoded_token['user_id']
-#             user = User.objects.get(id=user_id)
+        if not access_token:
+            request.user = None
+            return None
+        
+        try:
+            # Validate the access token
+            decoded_token = AccessToken(access_token)
+            user_id = decoded_token['user_id']
+            user = User.objects.get(id=user_id)
             
-#             # Check if the token is about to expire (e.g., within 2 minutes)
-#             exp_timestamp = decoded_token['exp']
-#             exp_time = datetime.fromtimestamp(exp_timestamp)
-#             remaining_time = exp_time - datetime.utcnow()
+            # Check if token is about to expire (within 5 minutes)
+            exp_timestamp = decoded_token['exp']
+            exp_time = datetime.fromtimestamp(exp_timestamp)
+            remaining_time = exp_time - datetime.utcnow()
 
-#             if remaining_time < timedelta(minutes=2) and refresh_token:
-#                 # Refresh the access token using the refresh token
-#                 new_access_token = self.refresh_access_token(refresh_token)
-#                 if new_access_token:
-#                     request.new_access_token = new_access_token
-
-#             request.user = user  # Attach the authenticated user to request.user
-
-#         except (jwt.ExpiredSignatureError, jwt.DecodeError, User.DoesNotExist, jwt.InvalidTokenError):
-#             request.user = None
-
-
-#     def process_response(self, request, response):
-#         # Check if a new access token was generated
-#         new_access_token = getattr(request, 'new_access_token', None)
-#         if new_access_token:
-#             response.set_cookie('access_token', new_access_token, httponly=True, secure=True)
-
-#         return response
-
-#     def refresh_access_token(self, refresh_token):
-#         try:
-#             # Decode the refresh token to generate a new access token
-#             decoded_refresh_token = RefreshToken(refresh_token)
-#             new_access_token = decoded_refresh_token.access_token
-#             return str(new_access_token)
-#         except jwt.ExpiredSignatureError:
-#             return None
+            if remaining_time < timedelta(minutes=5) and refresh_token:
+                # Set a flag to refresh in the response
+                request.needs_token_refresh = True
+                request.refresh_token = refresh_token
+            
+            request.user = user
+            
+        except (InvalidToken, TokenError, User.DoesNotExist):
+            request.user = None
+            
+    def process_response(self, request, response):
+        if getattr(request, 'needs_token_refresh', False):
+            try:
+                # Create a new token pair
+                refresh = RefreshToken(request.refresh_token)
+                new_access_token = str(refresh.access_token)
+                
+                # Set the new access token in the cookie
+                response.set_cookie(
+                    'access_token',
+                    new_access_token,
+                    httponly=True,
+                    secure=False,  # Set to True in production
+                    samesite='Lax',
+                    max_age=60*60  # Set an explicit lifetime (e.g., 1 hour)
+                )
+            except Exception as e:
+                print(f"Error refreshing token: {str(e)}")
+                
+        return response

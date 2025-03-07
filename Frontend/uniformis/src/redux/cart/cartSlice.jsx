@@ -304,6 +304,7 @@ const cartSlice = createSlice({
         state.loading = false
         state.items = action.payload.items || []
         state.totalAmount = action.payload.total_price || 0
+        state.finalTotal = action.payload.final_total || 0
         state.itemCount = action.payload.total_items || 0
       })
       .addCase(updateCartItemQuantity.rejected, (state, action) => {

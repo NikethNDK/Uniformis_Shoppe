@@ -81,14 +81,37 @@ class Coupon(models.Model):
         if now < self.valid_from:
             return False, "Coupon is not yet valid"
         if now > self.valid_until:
-            return False, "Coupon has expired"
+                return False, "Coupon has expired"
+
+        total_usage_count = CouponUsage.objects.filter(
+            coupon=self, 
+            is_used=True
+        ).count()
+        if self.usage_limit and total_usage_count >= self.usage_limit:
+            return False, "Coupon usage limit reached"
 
         # Check usage limit
-        user_usage = CouponUsage.objects.filter(coupon=self, user=user).count()
-        if not self.allow_multiple_use and user_usage > 0:
-            return False, "Coupon already used"
-        if user_usage >= self.usage_limit:
-            return False, "Usage limit exceeded"
+        # user_usage = CouponUsage.objects.filter(coupon=self, user=user).count()
+        # if not self.allow_multiple_use and user_usage > 0:
+        #     return False, "Coupon already used"
+        # if user_usage >= self.usage_limit:
+        #     return False, "Usage limit exceeded"
+
+        # return True, "Coupon is valid"
+
+        user_usage_count = CouponUsage.objects.filter(
+            coupon=self, 
+            user=user, 
+            is_used=True
+        ).count()
+
+        # If multiple use is not allowed, check user usage
+        if not self.allow_multiple_use and user_usage_count > 0:
+            return False, "Coupon already used by this user"
+
+        # If multiple use is allowed, check against usage limit
+        if user_usage_count >= self.usage_limit:
+            return False, "User has reached coupon usage limit"
 
         return True, "Coupon is valid"
 

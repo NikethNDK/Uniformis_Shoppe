@@ -38,10 +38,16 @@ const CartPage = () => {
   const handleRemoveItem = async (itemId) => {
     try {
       await dispatch(removeFromCart({ item_id: itemId })).unwrap();
+
+      setLocalQuantities(prev => {
+        const updatedQuantities = { ...prev };
+        delete updatedQuantities[itemId]; // Remove from local state
+        return updatedQuantities;
+      });
     } catch (error) {
       console.error('Failed to remove item:', error);
     }
-    loadCart()
+    // loadCart()
   };
 
   const handleQuantityChange = (itemId, newQuantity, stockQuantity) => {
@@ -55,6 +61,9 @@ const CartPage = () => {
       ...prev,
       [itemId]: newQuantity
     }));
+
+    // Dispatch the Redux action to persist the change
+    dispatch(updateCartItemQuantity({ item_id: itemId, quantity: newQuantity }));
   };
 
   const handleProceedToCheckout = async () => {

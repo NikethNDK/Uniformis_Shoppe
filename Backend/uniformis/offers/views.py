@@ -132,6 +132,58 @@ def available_coupons(request):
     serializer = CouponSerializer(coupons, many=True)
     return Response(serializer.data)
 
+# @api_view(['POST'])
+# @permission_classes([IsAuthenticated])
+# def apply_coupon(request):
+#     cleanup_pending_coupon_usages()
+    
+#     code = request.data.get('code')
+#     total_amount = request.data.get('total_amount', 0)
+    
+#     if not code:
+#         return Response({'error': 'Coupon code is required'}, status=400)
+        
+#     try:
+#         coupon = Coupon.objects.get(code=code, is_active=True)
+        
+#         # Validate coupon timeframe
+#         if not (coupon.valid_from <= timezone.now() <= coupon.valid_until):
+#             return Response({'error': 'This coupon is not valid at the moment'}, status=400)
+            
+#         # Check if user has already used this coupon
+#         if CouponUsage.objects.filter(coupon=coupon, user=request.user, is_used=True).exists():
+#             return Response({'error': 'You have already used this coupon'}, status=400)
+        
+#         # Check usage limit
+#         if coupon.usage_limit and CouponUsage.objects.filter(coupon=coupon, is_used=True).count() >= coupon.usage_limit:
+#             return Response({'error': 'This coupon has reached its usage limit'}, status=400)
+        
+#         # Check minimum purchase amount
+#         if coupon.minimum_purchase and float(total_amount) < float(coupon.minimum_purchase):
+#             return Response({
+#                 'error': f'Minimum purchase amount of ₹{coupon.minimum_purchase} required'
+#             }, status=400)
+        
+#         # Calculate discount
+#         discount_amount = (float(total_amount) * coupon.discount_percentage) / 100
+        
+#         # Create or update coupon usage
+#         CouponUsage.objects.update_or_create(
+#             coupon=coupon,
+#             user=request.user,
+#             is_used=False,  # Only get/create pending usage
+#             defaults={'created_at': timezone.now()}
+#         )
+        
+#         return Response({
+#             'code': coupon.code,
+#             'discount_amount': discount_amount,
+#             'message': 'Coupon applied successfully'
+#         })
+        
+#     except Coupon.DoesNotExist:
+#         return Response({'error': 'Invalid coupon code'}, status=400)
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def apply_coupon(request):
@@ -149,14 +201,21 @@ def apply_coupon(request):
         # Validate coupon timeframe
         if not (coupon.valid_from <= timezone.now() <= coupon.valid_until):
             return Response({'error': 'This coupon is not valid at the moment'}, status=400)
-            
-        # Check if user has already used this coupon
-        if CouponUsage.objects.filter(coupon=coupon, user=request.user, is_used=True).exists():
-            return Response({'error': 'You have already used this coupon'}, status=400)
         
-        # Check usage limit
-        if coupon.usage_limit and CouponUsage.objects.filter(coupon=coupon, is_used=True).count() >= coupon.usage_limit:
+        # Check total usage limit
+        total_usage_count = CouponUsage.objects.filter(coupon=coupon, is_used=True).count()
+        if coupon.usage_limit and total_usage_count >= coupon.usage_limit:
             return Response({'error': 'This coupon has reached its usage limit'}, status=400)
+        
+        # Check user-specific usage if multiple use is not allowed
+        user_usage_count = CouponUsage.objects.filter(
+            coupon=coupon, 
+            user=request.user, 
+            is_used=True
+        ).count()
+        
+        if not coupon.allow_multiple_use and user_usage_count > 0:
+            return Response({'error': 'You have already used this coupon'}, status=400)
         
         # Check minimum purchase amount
         if coupon.minimum_purchase and float(total_amount) < float(coupon.minimum_purchase):

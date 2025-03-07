@@ -699,6 +699,7 @@ class AddressViewSet(viewsets.ModelViewSet):
         )
     
 
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def check_auth_status(request):

@@ -66,6 +66,15 @@ class CouponSerializer(serializers.ModelSerializer):
         model = Coupon
         fields = '__all__'
 
+    def create(self, validated_data):
+        """
+        Custom create function to set allow_multiple_use to True if usage_limit > 1.
+        """
+        if validated_data.get('usage_limit', 1) > 1:
+            validated_data['allow_multiple_use'] = True  # Automatically set
+
+        return super().create(validated_data)
+
     def get_is_expired(self, obj):
         return obj.valid_until < timezone.now()
 

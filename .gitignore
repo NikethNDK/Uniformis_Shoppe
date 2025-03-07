@@ -7,7 +7,9 @@ frontend/dist/  # For Vite
 backend/__pycache__/
 backend/venv/
 backend/uniformis/.env
-
+__pycache__/
+*.pyc
+*.pyo
 
 # Ignore system files
 .DS_Store
