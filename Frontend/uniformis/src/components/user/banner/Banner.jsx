@@ -1,158 +1,104 @@
-// import React, { useState, useEffect } from 'react';
-// import { ChevronLeft, ChevronRight } from 'lucide-react';
-
-// const Banner = () => {
-//   const [banners, setBanners] = useState([]);
-//   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
-//   const [loading, setLoading] = useState(true);
-//   const [error, setError] = useState(null);
-
-//   useEffect(() => {
-//     fetchBanners();
-//   }, []);
-
-//   useEffect(() => {
-//     if (banners.length > 0) {
-//       const timer = setInterval(() => {
-//         setCurrentBannerIndex((prevIndex) => 
-//           (prevIndex + 1) % banners.length
-//         );
-//       }, 3000);
-
-//       return () => clearInterval(timer);
-//     }
-//   }, [banners.length]);
-
-//   const fetchBanners = async () => {
-//     try {
-//       const response = await fetch('/api/banners/active');
-//       if (!response.ok) throw new Error('Failed to fetch banners');
-//       const data = await response.json();
-//       setBanners(data);
-//       setLoading(false);
-//     } catch (err) {
-//       setError(err.message);
-//       setLoading(false);
-//     }
-//   };
-
-//   const nextBanner = () => {
-//     setCurrentBannerIndex((prevIndex) => 
-//       (prevIndex + 1) % banners.length
-//     );
-//   };
-
-//   const prevBanner = () => {
-//     setCurrentBannerIndex((prevIndex) => 
-//       prevIndex === 0 ? banners.length - 1 : prevIndex - 1
-//     );
-//   };
-
-//   if (loading) return <div className="w-full h-64 bg-gray-100 animate-pulse rounded-lg" />;
-//   if (error) return null;
-//   if (banners.length === 0) return null;
-
-//   return (
-//     <div className="relative w-full h-64 md:h-96 mb-8 overflow-hidden rounded-lg">
-//       <div className="absolute inset-0">
-//         <img 
-//           src={banners[currentBannerIndex]?.imageUrl} 
-//           alt={banners[currentBannerIndex]?.name || 'Banner'} 
-//           className="w-full h-full object-cover"
-//         />
-//       </div>
-      
-//       {banners.length > 1 && (
-//         <>
-//           <button 
-//             onClick={prevBanner}
-//             className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 p-2 rounded-full hover:bg-white"
-//           >
-//             <ChevronLeft className="w-6 h-6" />
-//           </button>
-//           <button 
-//             onClick={nextBanner}
-//             className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 p-2 rounded-full hover:bg-white"
-//           >
-//             <ChevronRight className="w-6 h-6" />
-//           </button>
-
-//           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2">
-//             {banners.map((_, index) => (
-//               <button
-//                 key={index}
-//                 onClick={() => setCurrentBannerIndex(index)}
-//                 className={`w-2 h-2 rounded-full ${
-//                   index === currentBannerIndex ? 'bg-white' : 'bg-white/50'
-//                 }`}
-//               />
-//             ))}
-//           </div>
-//         </>
-//       )}
-//     </div>
-//   );
-// };
-
-// export default Banner;
-
 import React, { useState, useEffect } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "../../components/ui/button";
 
-const BannerCarousel = ({ banners }) => {
+const BannerCarousel = ({ banners = [] }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
-
+  const activeBanners = banners.filter(banner => banner.status === "active");
+  
+  // Auto-rotate banners every 5 seconds
   useEffect(() => {
-    if (banners.length <= 1) return;
-
+    if (activeBanners.length <= 1) return;
+    
     const interval = setInterval(() => {
-      setCurrentIndex((prevIndex) =>
-        prevIndex === banners.length - 1 ? 0 : prevIndex + 1
+      setCurrentIndex(prevIndex => 
+        prevIndex === activeBanners.length - 1 ? 0 : prevIndex + 1
       );
-    }, 5000); // Change banner every 5 seconds
-
+    }, 5000);
+    
     return () => clearInterval(interval);
-  }, [banners.length]);
-
-  if (!banners || banners.length === 0) return null;
-
-  const activeBanners = banners.filter(
-    (banner) =>
-      banner.status === "active" &&
-      new Date(banner.startDate) <= new Date() &&
-      new Date(banner.endDate) >= new Date()
-  );
-
-  if (activeBanners.length === 0) return null;
-
+  }, [activeBanners.length]);
+  
+  // Navigation handlers
+  const goToNext = () => {
+    setCurrentIndex(prevIndex => 
+      prevIndex === activeBanners.length - 1 ? 0 : prevIndex + 1
+    );
+  };
+  
+  const goToPrevious = () => {
+    setCurrentIndex(prevIndex => 
+      prevIndex === 0 ? activeBanners.length - 1 : prevIndex - 1
+    );
+  };
+  
+  // If no active banners, display nothing or a placeholder
+  if (activeBanners.length === 0) {
+    return null;
+  }
+  
   return (
-    <div className="relative w-full min-h-[400px] overflow-hidden">
-      {activeBanners.map((banner, index) => (
-        <div
-          key={banner.id}
-          className={`absolute w-full h-full transition-opacity duration-500 ${
-            index === currentIndex ? "opacity-100" : "opacity-0"
-          }`}
-        >
-          <img
-            src={banner.image || "/placeholder.svg"}
-            alt={banner.name}
-            className="w-full h-full object-cover"
-          />
-        </div>
-      ))}
-      
-      {/* Navigation dots */}
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
-        {activeBanners.map((_, index) => (
-          <button
-            key={index}
-            className={`w-2 h-2 rounded-full ${
-              index === currentIndex ? "bg-white" : "bg-white/50"
-            }`}
-            onClick={() => setCurrentIndex(index)}
-          />
+    <div className="relative w-full h-64 overflow-hidden rounded-lg">
+      {/* Banner Images */}
+      <div 
+        className="w-full h-full flex transition-transform duration-500 ease-in-out"
+        style={{ 
+          transform: `translateX(-${currentIndex * 100}%)`,
+          width: `${activeBanners.length * 100}%` 
+        }}
+      >
+        {activeBanners.map((banner) => (
+          <div 
+            key={banner.id} 
+            className="relative w-full h-full flex-shrink-0"
+          >
+            <img
+              src={banner.image}
+              alt={banner.name}
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white p-2">
+              <h3 className="font-bold">{banner.name}</h3>
+            </div>
+          </div>
         ))}
       </div>
+      
+      {/* Navigation Controls - only show if multiple banners */}
+      {activeBanners.length > 1 && (
+        <>
+          <Button 
+            variant="outline" 
+            size="icon"
+            className="absolute top-1/2 left-2 transform -translate-y-1/2 bg-white bg-opacity-70 rounded-full p-2"
+            onClick={goToPrevious}
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            size="icon"
+            className="absolute top-1/2 right-2 transform -translate-y-1/2 bg-white bg-opacity-70 rounded-full p-2"
+            onClick={goToNext}
+          >
+            <ChevronRight className="h-6 w-6" />
+          </Button>
+          
+          {/* Dots indicator */}
+          <div className="absolute bottom-10 left-0 right-0 flex justify-center gap-2">
+            {activeBanners.map((_, index) => (
+              <button
+                key={index}
+                className={`h-2 w-2 rounded-full ${
+                  index === currentIndex ? "bg-white" : "bg-gray-400"
+                }`}
+                onClick={() => setCurrentIndex(index)}
+              />
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 };

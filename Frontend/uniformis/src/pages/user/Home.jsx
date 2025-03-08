@@ -237,6 +237,7 @@ const Home = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
           <div className="flex flex-col md:flex-row justify-between items-center mb-6">
+            
             <h1 className="text-4xl font-bold text-gray-900 mb-4 md:mb-0">
               New Arrivals
               <span className="block text-sm font-normal text-gray-500 mt-2">
