@@ -34,6 +34,7 @@ class ColorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Color
         fields = ['id', 'name', 'hex_code']
+
 class ProductSizeColorSerializer(serializers.ModelSerializer):
     size = SizeSerializer(read_only=True)
     color = ColorSerializer(read_only=True)
@@ -50,7 +51,7 @@ class ProductSerializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True, read_only=True)
     category = CategorySerializer(read_only=True)
     variants = ProductSizeColorSerializer(many=True, read_only=True)
-    category_id = serializers.IntegerField(write_only=True)
+    category_id = serializers.IntegerField(write_only=True)  
     discount_percentage = serializers.SerializerMethodField()
     
     # For writing variants

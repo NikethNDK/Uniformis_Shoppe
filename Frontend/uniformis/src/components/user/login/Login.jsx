@@ -94,7 +94,7 @@ const Login = () => {
       script.onload = () => {
         // Initialize Google Identity Services
         window.google.accounts.id.initialize({
-          // client_id:import.meta.env.GOOGLE_CLIENT_ID,
+          // client_id:import.meta.env.VITE_GOOGLE_CLIENT_ID,
           client_id:
             "447562974245-n3dkhp35abet7aqdvfqv8flgkd39nai0.apps.googleusercontent.com",
           callback: handleCredentialResponse,

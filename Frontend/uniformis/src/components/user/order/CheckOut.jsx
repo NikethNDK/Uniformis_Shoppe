@@ -209,7 +209,7 @@ const CheckoutPage = () => {
         };
  
         const options = {
-          key:import.meta.env.REACT_APP_RAZORPAY_KEY_ID,
+          key:import.meta.env.VITE_RAZORPAY_KEY_ID,
           amount: orderData.amount,  
           currency: orderData.currency,
           name: "Uniformis Shoppe",
