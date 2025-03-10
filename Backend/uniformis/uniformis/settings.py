@@ -82,7 +82,12 @@ CORS_ALLOW_METHODS = [
 CSRF_COOKIE_SECURE = False
 
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "api.uniformisshoppe.in",
+    "localhost",
+    "127.0.0.1",
+]
+
 SITE_ID = 2
 
 # Application definition
