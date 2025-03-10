@@ -125,7 +125,7 @@ const CartPage = () => {
     return (
       <div className="text-center py-10">
         <h2 className="text-2xl font-bold mb-4">Your cart is empty</h2>
-        <Link to="/user/homepage" className="text-blue-600 hover:text-blue-800">
+        <Link to="/user/home" className="text-blue-600 hover:text-blue-800">
           Continue Shopping
         </Link>
       </div>

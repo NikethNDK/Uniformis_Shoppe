@@ -7,7 +7,7 @@ export default function Footer() {
               <h3 className="text-lg font-semibold mb-4">Contact</h3>
               <ul className="space-y-2">
                 <li>
-                  <a href="/user/homepage" className="hover:text-primary">
+                  <a href="/user/home" className="hover:text-primary">
                     Home
                   </a>
                 </li>

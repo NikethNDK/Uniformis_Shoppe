@@ -238,13 +238,13 @@ const ProductDetail = () => {
       <nav className="text-gray-600 mb-8">
         <ol className="list-none p-0 flex flex-wrap">
           <li className="flex items-center">
-            <Link to="/user/homepage" className="hover:text-blue-600">
+            <Link to="/user/home" className="hover:text-blue-600">
               Home
             </Link>
             <span className="mx-2">/</span>
           </li>
           <li className="flex items-center">
-            <Link to={`/user/homepage`} className="hover:text-blue-600">
+            <Link to={`/user/home`} className="hover:text-blue-600">
               {product.category.name}
             </Link>
             <span className="mx-2">/</span>
