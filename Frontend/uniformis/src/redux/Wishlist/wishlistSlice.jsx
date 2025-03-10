@@ -144,7 +144,7 @@ export const removeFromWishlist = createAsyncThunk(
       
       // If response is an empty array, return an empty wishlist state
       if (Array.isArray(response) && response.length === 0) {
-        toast.success("Item removed from wishlist");
+        // toast.success("Item removed from wishlist");
         return {
           items: [],
           total_price: 0,
