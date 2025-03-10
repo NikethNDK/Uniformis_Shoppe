@@ -54,10 +54,15 @@ SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups'
 X_FRAME_OPTIONS = 'SAMEORIGIN'
 CORS_EXPOSE_HEADERS = ['Content-Type', 'X-CSRFToken']
 CORS_ALLOW_CREDENTIALS = True
+
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
+    "http://localhost:5173",  # For local development
+    "http://127.0.0.1:5173",  # For local development
+    "https://uniformisshoppe.in",  # Main domain
+    "https://www.uniformisshoppe.in",  # www version
+    "https://api.uniformisshoppe.in",  # Backend API
 ]
+
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
