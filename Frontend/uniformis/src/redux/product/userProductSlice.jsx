@@ -55,7 +55,7 @@ export const fetchSimilarProducts = createAsyncThunk(
       console.log("Similar Products API response:", response);
 
       // Prepending the base URL to the image path
-      const BASE_URL = "http://localhost:8000";
+      const BASE_URL = import.meta.env.VITE_BASE_URL;
 
       const updatedResponse = response.map((product) => ({
         ...product,
