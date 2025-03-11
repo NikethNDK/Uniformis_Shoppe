@@ -47,7 +47,7 @@ const CartPage = () => {
     } catch (error) {
       console.error('Failed to remove item:', error);
     }
-    // loadCart()
+    loadCart()
   };
 
   const handleQuantityChange = (itemId, newQuantity, stockQuantity) => {

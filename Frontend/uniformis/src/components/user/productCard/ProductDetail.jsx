@@ -244,7 +244,7 @@ const ProductDetail = () => {
             <span className="mx-2">/</span>
           </li>
           <li className="flex items-center">
-            <Link to={`/user/home`} className="hover:text-blue-600">
+            <Link to={`/user/category/${product.category.id}`} className="hover:text-blue-600">
               {product.category.name}
             </Link>
             <span className="mx-2">/</span>

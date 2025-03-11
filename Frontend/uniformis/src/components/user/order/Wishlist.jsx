@@ -48,7 +48,7 @@ const Wishlist = () => {
 
       // Make the API call
       await dispatch(removeFromWishlist({ item_id: itemId })).unwrap();
-      toast.success('Item removed from wishlist');
+      // toast.success('Item removed from wishlist');
     } catch (error) {
       // Revert the optimistic update if the API call fails
       dispatch(fetchWishlist());
