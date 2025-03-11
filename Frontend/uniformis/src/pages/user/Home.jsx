@@ -134,18 +134,36 @@ import { useDispatch, useSelector } from "react-redux"
 import { fetchNewProducts } from "../../redux/product/userProductSlice"
 import ProductCard from "./ProductCard"
 import FilterComponent from "./FilterComponent"
-import { Link } from "react-router-dom"
-import { ChevronDown } from "lucide-react"
+import { Link, useLocation } from "react-router-dom"
+import { ChevronDown, Search } from "lucide-react"
 
 const Home = () => {
   const dispatch = useDispatch()
+  const location = useLocation()
   const { products, loading, error } = useSelector((state) => state.userProducts)
   const [filteredProducts, setFilteredProducts] = useState([])
   const [displayedProducts, setDisplayedProducts] = useState([])
   const [currentPage, setCurrentPage] = useState(1)
   const [isFilterVisible, setIsFilterVisible] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
   const itemsPerPage = 9
   const loadMoreCount = 6
+
+  // Extract search query from URL or localStorage
+  useEffect(() => {
+    const queryParams = new URLSearchParams(location.search)
+    const searchQuery = queryParams.get('search')
+    
+    if (searchQuery) {
+      setSearchTerm(searchQuery)
+      localStorage.setItem('searchQuery', searchQuery)
+    } else {
+      const storedQuery = localStorage.getItem('searchQuery')
+      if (storedQuery) {
+        setSearchTerm(storedQuery)
+      }
+    }
+  }, [location.search])
 
   useEffect(() => {
     dispatch(fetchNewProducts())
@@ -153,20 +171,30 @@ const Home = () => {
 
   useEffect(() => {
     if (products && products.length > 0) {
-      const thirtyDaysAgo = new Date()
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-      const newArrivals = products.filter((product) => {
-        if (product.created_at) {
-          return new Date(product.created_at) >= thirtyDaysAgo
-        }
-        return true
-      })
+      let filtered = [...products]
       
-      const initialProducts = newArrivals.length > 0 ? newArrivals : products
-      setFilteredProducts(initialProducts)
-      setDisplayedProducts(initialProducts.slice(0, itemsPerPage))
+      // Apply search filter if search term exists
+      if (searchTerm) {
+        filtered = filtered.filter(product => 
+          product.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+          product.description.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      } else {
+        // If no search term, show new arrivals by default
+        const thirtyDaysAgo = new Date()
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+        filtered = products.filter((product) => {
+          if (product.created_at) {
+            return new Date(product.created_at) >= thirtyDaysAgo
+          }
+          return true
+        })
+      }
+      
+      setFilteredProducts(filtered)
+      setDisplayedProducts(filtered.slice(0, itemsPerPage))
     }
-  }, [products])
+  }, [products, searchTerm])
 
   const calculateDiscountedPrice = (product) => {
     return product.variants.reduce((min, variant) => {
@@ -177,6 +205,14 @@ const Home = () => {
 
   const handleFilter = (filters) => {
     let filtered = [...products]
+
+    // Apply search filter first
+    if (searchTerm) {
+      filtered = filtered.filter(product => 
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        product.description.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    }
 
     if (filters.minPrice) {
       filtered = filtered.filter((product) => {
@@ -208,6 +244,26 @@ const Home = () => {
     setCurrentPage(nextPage)
   }
 
+  // Clear search
+  const clearSearch = () => {
+    setSearchTerm("")
+    localStorage.removeItem('searchQuery')
+    // Reset to show new arrivals
+    if (products && products.length > 0) {
+      const thirtyDaysAgo = new Date()
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+      const newArrivals = products.filter((product) => {
+        if (product.created_at) {
+          return new Date(product.created_at) >= thirtyDaysAgo
+        }
+        return true
+      })
+      
+      setFilteredProducts(newArrivals)
+      setDisplayedProducts(newArrivals.slice(0, itemsPerPage))
+    }
+  }
+
   if (loading) return (
     <div className="flex justify-center items-center min-h-screen">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
@@ -223,15 +279,6 @@ const Home = () => {
     </div>
   )
 
-  if (!products || products.length === 0) return (
-    <div className="flex justify-center items-center min-h-screen">
-      <div className="bg-gray-50 rounded-lg p-8 text-center">
-        <h3 className="text-xl font-semibold mb-2">No Products Found</h3>
-        <p className="text-gray-600">Check back later for new arrivals</p>
-      </div>
-    </div>
-  )
-
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
@@ -239,18 +286,32 @@ const Home = () => {
           <div className="flex flex-col md:flex-row justify-between items-center mb-6">
             
             <h1 className="text-4xl font-bold text-gray-900 mb-4 md:mb-0">
-              New Arrivals
+              {searchTerm ? `Search Results: "${searchTerm}"` : "New Arrivals"}
               <span className="block text-sm font-normal text-gray-500 mt-2">
-                Discover our latest products and trending items
+                {searchTerm ? 
+                  `Found ${filteredProducts.length} products matching your search` : 
+                  "Discover our latest products and trending items"
+                }
               </span>
             </h1>
-            <button
-              onClick={() => setIsFilterVisible(!isFilterVisible)}
-              className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg transition-colors md:hidden"
-            >
-              Filters
-              <ChevronDown className={`w-4 h-4 transition-transform ${isFilterVisible ? 'rotate-180' : ''}`} />
-            </button>
+            
+            <div className="flex items-center gap-3">
+              {searchTerm && (
+                <button
+                  onClick={clearSearch}
+                  className="flex items-center gap-1 bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-lg transition-colors"
+                >
+                  Clear Search
+                </button>
+              )}
+              <button
+                onClick={() => setIsFilterVisible(!isFilterVisible)}
+                className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg transition-colors md:hidden"
+              >
+                Filters
+                <ChevronDown className={`w-4 h-4 transition-transform ${isFilterVisible ? 'rotate-180' : ''}`} />
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-col md:flex-row gap-8">
@@ -259,17 +320,34 @@ const Home = () => {
             </div>
 
             <div className="md:w-3/4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {displayedProducts.map((product) => (
-                  <Link
-                    key={product.id}
-                    to={`/user/product/${product.id}`}
-                    className="transform transition-all duration-300 hover:scale-105"
+              {displayedProducts.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {displayedProducts.map((product) => (
+                    <Link
+                      key={product.id}
+                      to={`/user/product/${product.id}`}
+                      className="transform transition-all duration-300 hover:scale-105"
+                    >
+                      <ProductCard product={product} />
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-16">
+                  <Search className="h-16 w-16 text-gray-300 mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-700 mb-2">No Products Found</h3>
+                  <p className="text-gray-500 text-center max-w-md">
+                    We couldn't find any products matching "{searchTerm}". 
+                    Try a different search term or browse our categories.
+                  </p>
+                  <button
+                    onClick={clearSearch}
+                    className="mt-6 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-6 rounded-full shadow transition-all duration-300"
                   >
-                    <ProductCard product={product} />
-                  </Link>
-                ))}
-              </div>
+                    View All Products
+                  </button>
+                </div>
+              )}
 
               {filteredProducts.length > displayedProducts.length && (
                 <div className="flex justify-center mt-12">
@@ -279,12 +357,6 @@ const Home = () => {
                   >
                     Load More Products
                   </button>
-                </div>
-              )}
-
-              {displayedProducts.length === 0 && (
-                <div className="text-center py-12">
-                  <p className="text-gray-500">No products match your filters</p>
                 </div>
               )}
             </div>

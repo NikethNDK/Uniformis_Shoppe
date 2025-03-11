@@ -15,11 +15,9 @@ import { Badge } from "../../components/ui/badge";
 export default function Navbar() {
   const [searchQuery, setSearchQuery] = useState("");
 
-  const user  = localStorage.getItem('user');
-  const isAuthenticated= localStorage.getItem('isAuthenticated');
-  // const { isAuthenticated, user } = useSelector((state) => state.auth);
-
-
+  const user = localStorage.getItem('user');
+  const isAuthenticated = localStorage.getItem('isAuthenticated');
+  
   const { data: profile } = useSelector((state) => state.profile.basicProfile);
   const { itemCount } = useSelector((state) => state.cart);
   const { categories } = useSelector((state) => state.userProducts);
@@ -27,7 +25,7 @@ export default function Navbar() {
   const navigate = useNavigate();
 
   const { items: wishlistItems } = useSelector((state) => state.wishlist);
-  console.log("To check the authetication after refresh in the navbar is Authenticted",isAuthenticated)
+  
   useEffect(() => {
     dispatch(fetchProducts());
     dispatch(fetchCart());  
@@ -41,6 +39,16 @@ export default function Navbar() {
     localStorage.clear()
     navigate("/login");
   };
+  
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      // Store the search query in localStorage so the Home component can access it
+      localStorage.setItem('searchQuery', searchQuery.trim());
+      // Redirect to the home page with the search query as a URL parameter
+      navigate(`/user/home?search=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -51,16 +59,19 @@ export default function Navbar() {
           </Link>
 
           <div className="flex-1 max-w-xl mx-8">
-            <div className="relative">
-              <Search className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <form onSubmit={handleSearch} className="relative">
+              {/* <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /> */}
               <Input
                 type="search"
                 placeholder="Search products..."
-                className="w-full pl-10 pr-4"
+                className="w-full pl-10 pr-4 "
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
-            </div>
+              <button type="submit" className="absolute right-4 top-1/2 -translate-y-1/2 sr-only">
+                Search
+              </button>
+            </form>
           </div>
 
           <div className="flex items-center gap-4">

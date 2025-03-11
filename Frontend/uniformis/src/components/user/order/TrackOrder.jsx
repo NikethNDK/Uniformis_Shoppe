@@ -465,8 +465,11 @@ export default function TrackOrder() {
     Return Item
   </Button>
 )}
+                      {/* Only show "Cancel Item" button if the order is not cancelled and the item is active */}
                       {item.status === "active" &&
-                        order.status !== "delivered" && (
+                        order.status !== "delivered" &&
+                        order.status !== "cancelled" &&
+                        !(order.items.length === 1 && order.status === "cancelled") && (
                           <Button
                             variant="destructive"
                             size="sm"
@@ -545,9 +548,11 @@ export default function TrackOrder() {
                       Payment Status: {order.payment_status}
                     </p>
                     <div className="flex flex-wrap gap-2 mt-2">
+                      {/* Check if any item is cancelled before showing "Cancel Order" button */}
                       {order.status !== "delivered" &&
                         order.status !== "cancelled" &&
-                        order.status !== "returned" && (
+                        order.status !== "returned" &&
+                        !order.items.some(item => item.status === "cancelled") && (
                           <Button
                             variant="destructive"
                             size="sm"
