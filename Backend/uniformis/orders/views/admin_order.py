@@ -79,60 +79,124 @@ class AdminOrderViewSet(viewsets.ModelViewSet):
         
         return Response({'status': 'Full order refund processed and credited to wallet'})
     
+    # @action(detail=True, methods=['post'], url_path='refund-item/(?P<item_id>[^/.]+)')
+    # def refund_item(self, request, pk=None, item_id=None):
+    #     order = self.get_object()
+
+    #     try:
+    #         item = order.items.get(id=item_id)
+    #         print(item.status)
+    #     except OrderItem.DoesNotExist:
+    #         return Response(
+    #             {'error': 'Item not found'},
+    #             status=status.HTTP_404_NOT_FOUND
+    #         )
+
+    #     if item.status == 'refunded':
+    #         return Response(
+    #             {'error': 'Item is already refunded'},
+    #             status=status.HTTP_400_BAD_REQUEST
+    #         )
+
+    #     if item.status != 'cancelled' and item.status!='returned':
+    #         return Response(
+    #             {'error': 'Only cancelled and returned items can be refunded'},
+    #             status=status.HTTP_400_BAD_REQUEST
+    #         )
+
+    #     try:
+    #         with transaction.atomic():
+    #             # Calculate refund amount and handle cancellation
+    #             refund_amount = order.calculate_item_refund_amount(item)
+
+    #             # Process the refund
+    #             order.process_refund(refund_amount, item)
+
+    #             # Update item status
+    #             item.status = 'refunded'
+    #             item.refund_amount = refund_amount
+    #             item.refund_processed = True
+    #             item.save()
+
+    #             # Check if all items are refunded
+    #             if not order.items.exclude(status='refunded').exists():
+    #                 order.payment_status = 'refunded'
+    #                 order.save()
+
+    #     except Exception as e:
+    #         return Response(
+    #             {'error': str(e)},
+    #             status=status.HTTP_400_BAD_REQUEST
+    #         )
+
+    #     return Response({
+    #         'status': 'Item refund processed and credited to wallet',
+    #         'refunded_amount': float(refund_amount),
+    #         'coupon_adjustment': float(item.final_price - refund_amount)
+    #     })
+
+
+
+
+
     @action(detail=True, methods=['post'], url_path='refund-item/(?P<item_id>[^/.]+)')
     def refund_item(self, request, pk=None, item_id=None):
-        order = self.get_object()
-
+        """Process refund for a specific cancelled item"""
         try:
+            order = self.get_object()
             item = order.items.get(id=item_id)
-            print(item.status)
-        except OrderItem.DoesNotExist:
-            return Response(
-                {'error': 'Item not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
 
-        if item.status == 'refunded':
-            return Response(
-                {'error': 'Item is already refunded'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            # Validate that item is cancelled and refund is not yet processed
+            if item.status != 'cancelled':
+                return Response(
+                    {'error': 'Only cancelled items can be refunded'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-        if item.status != 'cancelled' and item.status!='returned':
-            return Response(
-                {'error': 'Only cancelled and returned items can be refunded'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            if item.refund_processed:
+                return Response(
+                    {'error': 'Refund has already been processed for this item'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-        try:
-            with transaction.atomic():
-                # Calculate refund amount and handle cancellation
+            # Use the already calculated refund amount
+            refund_amount = item.refund_amount
+
+            # If refund amount is not set, calculate it now
+            if refund_amount is None or refund_amount == 0:
                 refund_amount = order.calculate_item_refund_amount(item)
-
-                # Process the refund
-                order.process_refund(refund_amount, item)
-
-                # Update item status
-                item.status = 'refunded'
                 item.refund_amount = refund_amount
-                item.refund_processed = True
                 item.save()
 
-                # Check if all items are refunded
-                if not order.items.exclude(status='refunded').exists():
-                    order.payment_status = 'refunded'
-                    order.save()
+            # Process the refund
+            order.process_refund(refund_amount, item)
 
+            # Mark the refund as processed
+            item.refund_processed = True
+            item.save()
+
+            # Update payment status if all cancelled items are refunded
+            all_refunded = not order.items.filter(status='cancelled', refund_processed=False).exists()
+            if all_refunded:
+                if order.status == 'cancelled':
+                    order.payment_status = 'refunded'
+                else:
+                    order.payment_status = 'partially_refunded'
+                order.save()
+
+            return Response({
+                'message': 'Refund processed successfully',
+                'refunded_amount': float(refund_amount),
+                'coupon_adjustment': float(item.final_price - refund_amount)
+            })
+
+        except OrderItem.DoesNotExist:
+            return Response(
+                {'error': 'Item not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
         except Exception as e:
             return Response(
-                {'error': str(e)},
+                {'error': str(e)}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
-
-        return Response({
-            'status': 'Item refund processed and credited to wallet',
-            'refunded_amount': float(refund_amount),
-            'coupon_adjustment': float(item.final_price - refund_amount)
-        })
-
-  

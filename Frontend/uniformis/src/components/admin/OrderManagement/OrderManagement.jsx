@@ -128,21 +128,34 @@ export default function AdminOrderManagement() {
   // If you need to restrict by payment method, use this version instead:
   const canRefundItemWithPaymentMethod = (item, order) => {
     const allowedPaymentMethods = ["card", "upi", "cod"]; // Include all allowed payment methods
-
+  
+    // Check if the item is in a refundable status
     const isRefundableStatus =
       item.status === "cancelled" || item.status === "returned";
+    
+    // Check if the order's payment is not already fully refunded
     const isPaymentRefundable = order.payment_status !== "refunded";
+    
+    // Check if the entire order is not cancelled or returned
     const isOrderRefundable =
       order.status !== "cancelled" && order.status !== "returned";
+    
+    // Check if the payment method is allowed for refunds
     const isPaymentMethodAllowed = allowedPaymentMethods.includes(
       order.payment_method
     );
-
+    
+    // NEW CHECK: Verify if this specific item has not already been refunded
+    // If refund_amount exists and is greater than 0, it means the item has already been refunded
+    const isItemNotAlreadyRefunded = 
+      !item.refund_amount || parseFloat(item.refund_amount) === 0;
+  
     return (
       isRefundableStatus &&
       isPaymentRefundable &&
       isOrderRefundable &&
-      isPaymentMethodAllowed
+      isPaymentMethodAllowed &&
+      isItemNotAlreadyRefunded
     );
   };
 
@@ -345,8 +358,8 @@ export default function AdminOrderManagement() {
                   Customer Details
                 </TableHead>
                 <TableHead className="w-[150px]">Date</TableHead>
-                <TableHead className="w-[120px]">Status</TableHead>
-                <TableHead className="w-[150px]">Payment</TableHead>
+                <TableHead className="w-[120px]">Order Status</TableHead>
+                <TableHead className="w-[150px]">Payment Details</TableHead>
                 <TableHead className="w-[100px] text-right">Total</TableHead>
                 <TableHead className="w-[70px]">Actions</TableHead>
               </TableRow>

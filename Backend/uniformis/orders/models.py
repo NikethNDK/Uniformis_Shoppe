@@ -132,7 +132,7 @@ class Order(models.Model):
     
     """
     Validates if the order still meets coupon requirements after cancellation
-    and adjusts totals accordingly.
+    and adjusts totals accordingly. 
         """
     def validate_coupon_after_cancellation(self):
 
@@ -341,37 +341,48 @@ class OrderItem(models.Model):
 
         with transaction.atomic():
             # Update item status
+            self.refund_amount =  0
+            
             self.status = 'cancelled'
             self.cancelled_at = timezone.now()
             self.cancel_reason = reason
             
             # Calculate refund amount
-            self.refund_amount = self.final_price
             
-            # Process refund to wallet
-            wallet, created = Wallet.objects.get_or_create(user=self.order.user)
-            wallet.balance += self.refund_amount
-            wallet.save()
+            self.refund_processed=False
+            self.save()
+            # # Process refund to wallet
+            # wallet, created = Wallet.objects.get_or_create(user=self.order.user)
+            # wallet.balance += self.refund_amount
+            # wallet.save()
             
-            # Create wallet transaction record
-            WalletTransaction.objects.create(
-                wallet=wallet,
-                amount=self.refund_amount,
-                transaction_type='CREDIT',
-                description=f'Refund for cancelled item from order {self.order.order_number}'
-            )
+            # # Create wallet transaction record
+            # WalletTransaction.objects.create(
+            #     wallet=wallet,
+            #     amount=self.refund_amount,
+            #     transaction_type='CREDIT',
+            #     description=f'Refund for cancelled item from order {self.order.order_number}'
+            # )
             
             # Update stock
             if self.variant:
                 self.variant.stock_quantity += self.quantity
                 self.variant.save()
             
-            self.refund_processed = True
-            self.save()
+            # self.refund_processed = True
+            # self.save()
             
             # Update order total
-            self.order.recalculate_totals()
+            # self.order.recalculate_totals()
     
+            active_items=self.order.items.exclude(status='cancelled').count()
+            if active_items ==0:
+                self.order.status='cancelled'
+                self.order.save()
+            else:
+                self.order.validate_coupon_after_cancellation()
+                self.order.recalculate_totals()
+
 
 class Wishlist (models.Model):
     user=models.ForeignKey(User, on_delete=models.CASCADE)

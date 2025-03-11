@@ -489,7 +489,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             order = self.get_object()
             item = order.items.get(id=item_id)
             if not item.can_cancel():
-                return Response(
+                return Response( 
                     {'error': 'Item cannot be cancelled'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
@@ -589,15 +589,31 @@ class OrderViewSet(viewsets.ModelViewSet):
         if not order.can_cancel():
             return Response({'error': 'Order cannot be cancelled. Cancellation is only allowed within 48 hours of placing the order'}, status=status.HTTP_400_BAD_REQUEST)
 
+        reason = request.data.get('reason', 'Order cancelled by user')
+
         # Update order status
-        order.status = 'cancelled'
-        order.save()
-
-        # Increase stock
-        for item in order.items.all():
-            item.variant.stock_quantity += item.quantity
-            item.variant.save()
-
+        with transaction.atomic():
+        # Update all items status to cancelled
+            for item in order.items.all():
+                # Calculate proper refund amount for each item
+                item.refund_amount = order.calculate_item_refund_amount(item)
+                
+                # Update item status
+                item.status = 'cancelled'
+                item.cancelled_at = timezone.now()
+                item.cancel_reason = reason
+                item.refund_processed = False
+                item.save()
+                
+                # Increase stock
+                if item.variant:
+                    item.variant.stock_quantity += item.quantity
+                    item.variant.save()
+            
+            # Update order status
+            order.status = 'cancelled'
+            order.save()
+    
         return Response({'message': 'Order cancelled successfully'}, status=status.HTTP_200_OK)
 
     def retrieve(self, request, *args, **kwargs):

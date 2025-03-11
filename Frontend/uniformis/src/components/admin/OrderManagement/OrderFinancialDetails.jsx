@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -49,11 +48,16 @@ const OrderFinancialDetails = ({ order }) => {
   const totalRefunded = processedRefunds;
   const totalPendingRefund = pendingRefundTotal;
 
-  // Calculate current final total - FIXED VERSION
-  // We start with the original final total and subtract any refunded amounts
-  const currentFinalTotal = (
-    parseFloat(order.final_total) - totalRefunded
-  ).toFixed(2);
+  // Calculate original total from items instead of using order.final_total
+  const originalTotalFromItems = order.items.reduce((sum, item) => (
+    sum + parseFloat(item.final_price)
+  ), 0);
+  
+  // Add delivery charges to the calculated total
+  const calculatedOriginalTotal = originalTotalFromItems + parseFloat(order.delivery_charges || 0);
+
+  // Calculate current final total - use the active items sum instead of subtracting from potentially incorrect final_total
+  const currentFinalTotal = activeItems.length > 0 ? currentSubtotal.toFixed(2) : "0.00";
 
   // Helper function to safely format dates
   const formatDate = (dateString) => {
@@ -65,8 +69,32 @@ const OrderFinancialDetails = ({ order }) => {
     }
   };
 
-  // Check if payment is pending
-  const isPendingPayment = order.payment_status === 'pending';
+  // Determine the actual payment status based on order status and payment status
+  const determinePaymentStatusDisplay = () => {
+    if (order.status === 'cancelled' && order.payment_status === 'refunded') {
+      return 'fully_refunded';
+    } else if (processedRefunds > 0 && activeItems.length > 0) {
+      return 'partially_refunded';
+    } else if (order.payment_status === 'pending') {
+      return 'pending';
+    } else if (activeItems.length === 0 && modifiedItems.length > 0) {
+      return 'to_be_refunded';
+    } else {
+      return 'paid';
+    }
+  };
+
+  const paymentStatus = determinePaymentStatusDisplay();
+  
+  // Consider wallet amount in calculations
+  const walletAmountUsed = parseFloat(order.wallet_amount_used) || 0;
+  const cardAmountPaid = parseFloat(order.final_total) - walletAmountUsed;
+
+  // For debugging - log values to help understand discrepancies
+  console.log("Order final_total:", order.final_total);
+  console.log("Sum of item prices:", originalTotalFromItems);
+  console.log("Active items total:", currentSubtotal);
+  console.log("Total refunded:", totalRefunded);
 
   return (
     <Card className="p-4 space-y-4">
@@ -75,12 +103,12 @@ const OrderFinancialDetails = ({ order }) => {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <h4 className="font-medium text-sm text-muted-foreground">
-            {isPendingPayment ? 'Payment Details' : 'Initial Payment'}
+            Original Payment Details
           </h4>
           <div className="space-y-1">
             <div className="flex justify-between">
               <span>Original Subtotal:</span>
-              <span>₹{order.subtotal}</span>
+              <span>₹{originalTotalFromItems.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-muted-foreground">
               <span>Item Discounts:</span>
@@ -96,25 +124,43 @@ const OrderFinancialDetails = ({ order }) => {
               <span>Delivery Charges:</span>
               <span>₹{order.delivery_charges}</span>
             </div>
+            {walletAmountUsed > 0 && (
+              <div className="flex justify-between text-muted-foreground">
+                <span>Wallet Amount Used:</span>
+                <span>₹{walletAmountUsed.toFixed(2)}</span>
+              </div>
+            )}
             <Separator className="my-2" />
             <div className="flex justify-between font-medium">
-              {isPendingPayment ? (
+              {paymentStatus === 'pending' ? (
                 <>
                   <span>Due Amount:</span>
-                  <span className="text-amber-600">₹{order.final_total}</span>
+                  <span className="text-amber-600">₹{calculatedOriginalTotal.toFixed(2)}</span>
                 </>
               ) : (
                 <>
-                  <span>Initial Total Paid:</span>
-                  <span>₹{order.final_total}</span>
+                  <span>Total Amount:</span>
+                  <span>₹{calculatedOriginalTotal.toFixed(2)}</span>
                 </>
               )}
             </div>
-            {isPendingPayment && (
-              <div className="flex justify-end mt-1">
+            <div className="flex justify-end mt-1">
+              {paymentStatus === 'pending' && (
                 <Badge variant="outline" className="bg-amber-50">Payment Pending</Badge>
-              </div>
-            )}
+              )}
+              {paymentStatus === 'partially_refunded' && (
+                <Badge variant="outline" className="bg-blue-50">Partially Refunded</Badge>
+              )}
+              {paymentStatus === 'fully_refunded' && (
+                <Badge variant="outline" className="bg-green-50">Fully Refunded</Badge>
+              )}
+              {paymentStatus === 'to_be_refunded' && (
+                <Badge variant="outline" className="bg-amber-50">To Be Refunded</Badge>
+              )}
+              {paymentStatus === 'paid' && activeItems.length > 0 && (
+                <Badge variant="outline" className="bg-green-50">Paid</Badge>
+              )}
+            </div>
           </div>
         </div>
 
@@ -145,10 +191,21 @@ const OrderFinancialDetails = ({ order }) => {
             )}
             <Separator className="my-2" />
             <div className="flex justify-between font-medium">
-              <span>{isPendingPayment ? 'Final Amount Due:' : 'Final Amount Retained:'}</span>
-              <span className={isPendingPayment ? "text-amber-600" : "text-green-600"}>
-                ₹{currentFinalTotal}
-              </span>
+              {activeItems.length > 0 ? (
+                <>
+                  <span>Current Amount:</span>
+                  <span className={paymentStatus === 'pending' ? "text-amber-600" : "text-green-600"}>
+                    ₹{currentFinalTotal}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span>Refund Amount:</span>
+                  <span className="text-red-600">
+                    ₹{(totalRefunded + totalPendingRefund).toFixed(2)}
+                  </span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -182,7 +239,7 @@ const OrderFinancialDetails = ({ order }) => {
                 <div className="text-right">
                   {item.refund_amount ? (
                     <p className="text-sm font-medium text-red-600">
-                      ₹{item.refund_amount} (Refunded)
+                      Refunded: ₹{item.refund_amount} 
                     </p>
                   ) : (
                     <div>
@@ -194,9 +251,9 @@ const OrderFinancialDetails = ({ order }) => {
                       )}
                     </div>
                   )}
-                  <p className="text-xs text-muted-foreground">
+                  {/* <p className="text-xs text-muted-foreground">
                     {formatDate(item.cancelled_at || item.returned_at)}
-                  </p>
+                  </p> */}
                 </div>
               </div>
             );
