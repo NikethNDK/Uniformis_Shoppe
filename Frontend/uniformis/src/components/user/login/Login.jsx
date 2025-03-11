@@ -52,7 +52,7 @@ const Login = () => {
         }));
 
         dispatch(fetchUserProfile());
-        toast.success("Login successful!");
+        // toast.success("Login successful!");
         navigate("/user/home");
       }
     } catch (error) {
