@@ -44,7 +44,7 @@ export const fetchCart = createAsyncThunk(
       };
     } catch (error) {
       if (error.type !== 'NOT_FOUND') {
-        toast.error("Failed to fetch cart items");
+        // toast.error("Failed to fetch cart items");
       }
       return rejectWithValue({
         message: error.message || "Failed to fetch cart items",
